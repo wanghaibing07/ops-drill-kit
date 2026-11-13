@@ -1,0 +1,2 @@
+CREATE TABLE orderguard_stage3.orders_import_1001_50000
+LIKE orderguard_stage3.orders;

@@ -1,0 +1,384 @@
+#!/usr/bin/env python3
+"""Read-only baseline checks; never print credentials, SQL output or HTTP bodies."""
+import sys
+sys.dont_write_bytecode = True
+import argparse
+import configparser
+import json
+import mmap
+import os
+from pathlib import Path
+import re
+import shlex
+import stat
+import urllib.error
+import urllib.request
+
+import common as c
+
+SOCKET = '/var/lib/mysql/mysql.sock'
+SQL = ("SELECT @@version, "
+       "(SELECT COUNT(*) FROM orderguard.orders WHERE "
+       "(id=1001 AND merchant_id=1 AND amount=99.00 AND status='paid') OR "
+       "(id=1002 AND merchant_id=1 AND amount=199.50 AND status='pending') OR "
+       "(id=1003 AND merchant_id=1 AND amount=49.90 AND status='paid') OR "
+       "(id=1004 AND merchant_id=2 AND amount=299.00 AND status='cancelled') OR "
+       "(id=1005 AND merchant_id=2 AND amount=88.80 AND status='paid')), "
+       "(SELECT COUNT(*) FROM orderguard_stage3.merchants), "
+       "(SELECT COUNT(*) FROM orderguard_stage3.orders), "
+       "(SELECT COUNT(*) FROM orderguard_stage3.orders WHERE merchant_id=88), "
+       "(SELECT COUNT(*) FROM orderguard_stage3.orders WHERE order_no IN "
+       "('OG000000000001','OG000000500000'));\n")
+
+
+def check_admin_options():
+    """Validate a deliberately narrow MySQL option-file subset in memory."""
+    c.protected(c.ADMIN)
+    text = c.ADMIN.read_text(encoding='utf-8')
+    allowed = {'host', 'user', 'password', 'socket', 'protocol'}
+    if any((ord(ch) < 32 and ch not in '\n\t') or ch in '\x7f\x85\u2028\u2029' for ch in text):
+        raise c.Refusal('管理员选项格式不受支持')
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith(('#', ';')):
+            continue
+        # Reject includes, extra sections, continuations and ambiguous syntax.
+        if (line[:1].isspace() or stripped.startswith('!') or
+                stripped.endswith('\\') or any(ord(ch) < 32 and ch != '\t' for ch in line)):
+            raise c.Refusal('管理员选项格式不受支持')
+        if stripped.startswith('['):
+            if stripped != '[client]':
+                raise c.Refusal('管理员选项格式不受支持')
+        elif '=' not in line or line.split('=', 1)[0].strip() not in allowed:
+            raise c.Refusal('管理员选项格式不受支持')
+    parser = configparser.RawConfigParser(interpolation=None, strict=True, delimiters=('=',))
+    parser.read_string(text)
+    if parser.sections() != ['client'] or parser.defaults():
+        raise c.Refusal('管理员选项格式不受支持')
+    options = dict(parser.items('client', raw=True))
+    if not set(options).issubset(allowed) or 'user' not in options:
+        raise c.Refusal('管理员选项格式不受支持')
+
+    def unquote(value):
+        value = value.strip()
+        if len(value) >= 2 and value[0] in ("'", '"') and value[-1] == value[0]:
+            return value[1:-1]
+        return value
+
+    if 'host' in options and unquote(options['host']) not in ('localhost', '127.0.0.1'):
+        raise c.Refusal('管理员选项格式不受支持')
+    if 'socket' in options and unquote(options['socket']) != SOCKET:
+        raise c.Refusal('管理员选项格式不受支持')
+    if 'protocol' in options and unquote(options['protocol']).lower() != 'socket':
+        raise c.Refusal('管理员选项格式不受支持')
+
+
+def database():
+    try:
+        check_admin_options()
+    except Exception:
+        # Config/parser exceptions may embed secret values: never echo them.
+        return 'UNKNOWN', '管理员选项文件缺失、不安全或格式不受支持'
+    # Defaults file is the first option, so other option files are not loaded.
+    try:
+        rc, out = c.command(['mysql', '--defaults-file=' + str(c.ADMIN),
+                             '--host=localhost', '--protocol=SOCKET', '--socket=' + SOCKET,
+                             '--batch', '--raw', '--skip-column-names',
+                             '--skip-reconnect', '--connect-timeout=3'],
+                            input_bytes=SQL.encode('ascii'), timeout=25)
+    except Exception:
+        return 'UNKNOWN', '本地 MySQL 只读查询失败或超时'
+    if rc != 0:
+        return 'UNKNOWN', '本地 MySQL 只读查询失败或超时'
+    values = out.strip().split(b'\t')
+    if (len(values) == 6 and re.fullmatch(rb'8\.4\.\d+(?:[-+][A-Za-z0-9._+-]+)?', values[0])
+            and b'mariadb' not in values[0].lower() and values[1:] == [b'5', b'500', b'500000', b'25000', b'2']):
+        return 'PASS', 'MySQL 8.4、固定旧订单及影子数据符合基线'
+    return 'FAIL', '固定数据与预期不符'
+
+
+def mysql_listeners():
+    """Check live MySQL TCP listeners without relying only on firewall policy."""
+    rc, pid = c.command(['systemctl', 'show', 'mysqld.service', '--property=MainPID', '--value'])
+    if rc != 0 or not re.fullmatch(rb'[1-9][0-9]*', pid.strip()):
+        return 'UNKNOWN', 'MySQL 进程身份不可确认'
+    process_id = pid.strip().decode('ascii')
+    rc, output = c.command(['/usr/sbin/ss', '-Hlntp', '(', 'sport', '=', ':3306', 'or', 'sport', '=', ':33060', ')'])
+    if rc != 0:
+        return 'UNKNOWN', '无法检查监听套接字'
+    try:
+        lines = output.decode('utf-8').splitlines()
+    except UnicodeError:
+        return 'UNKNOWN', '监听信息无法解析'
+    classic = False
+    for line in lines:
+        fields = line.split()
+        if len(fields) < 5:
+            return 'UNKNOWN', '监听信息不完整'
+        address = fields[3]
+        match = re.fullmatch(r'(127\.0\.0\.1|\[::1\]):(3306|33060)', address)
+        if not match:
+            return 'FAIL', 'MySQL 相关端口存在非本机监听'
+        if not re.search(r'pid=' + re.escape(process_id) + r'(?:,|\))', line):
+            return 'UNKNOWN', '监听者与 MySQL 服务进程不一致'
+        if match.group(2) == '3306':
+            classic = True
+    return ('PASS', 'MySQL TCP 端口仅监听回环地址') if classic else ('FAIL', '未发现 MySQL 3306 回环监听')
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def http(path, predicate):
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+    try:
+        with opener.open('http://127.0.0.1:8080' + path, timeout=4) as response:
+            if response.status != 200:
+                return False
+            body = response.read(65537)
+            if len(body) > 65536:
+                return False
+            obj = json.loads(body)
+            return bool(predicate(obj))
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        return False
+
+
+def os_version():
+    try:
+        data = Path('/etc/os-release').read_text(encoding='utf-8')
+        def field(name):
+            found = re.search(r'^' + name + r'=(?:"([^"\n]*)"|([^\s\n]*))$', data, re.M)
+            return (found.group(1) or found.group(2)) if found else ''
+        return field('ID') == 'rocky' and field('VERSION_ID') == '9.8'
+    except (OSError, UnicodeError):
+        return False
+
+
+def owner_text(st):
+    """Show real numeric ids even if an account name cannot be resolved."""
+    uid, gid = str(st.st_uid), str(st.st_gid)
+    try:
+        import pwd
+        uid += '(' + repr(pwd.getpwuid(st.st_uid).pw_name) + ')'
+    except (ImportError, KeyError):
+        pass
+    try:
+        import grp
+        gid += '(' + repr(grp.getgrgid(st.st_gid).gr_name) + ')'
+    except (ImportError, KeyError):
+        pass
+    risks = []
+    if st.st_uid != 0:
+        risks.append('非 root 属主可修改，不作为 root 可信输入')
+    if st.st_mode & 0o022 and not stat.S_ISLNK(st.st_mode):
+        risks.append('组或其他用户可写')
+    if stat.S_ISREG(st.st_mode) and st.st_nlink != 1:
+        risks.append('多个硬链接')
+    return 'uid=' + uid + ' gid=' + gid + f' mode={stat.S_IMODE(st.st_mode):04o}' + ('；' + '，'.join(risks) if risks else '')
+
+
+def observe(path, kind):
+    c.observed_chain(path.parent)
+    st = path.lstat()
+    good = stat.S_ISDIR(st.st_mode) if kind == 'dir' else stat.S_ISREG(st.st_mode)
+    if not good:
+        raise c.Refusal('类型不符或符号链接')
+    return st
+
+
+def has_files():
+    files = ['app/main.py', 'app/stage3_api.py', 'app/bounded_pool.py',
+             'app/n03_slow.py', 'conf/orderguard-api.service',
+             'conf/orderguard-nginx.conf', 'conf/30-stage3-reader.conf',
+             'requirements.txt', 'sql/001_schema.sql', 'sql/002_seed.sql',
+             'sql/003_stage3_schema.sql', 'scripts/generate_orders.py']
+    missing, records = [], {}
+    for path in (*reversed(c.PROJECT.parents), c.PROJECT, c.BASELINE):
+        try:
+            records[path] = observe(path, 'dir')
+        except (OSError, c.Refusal):
+            missing.append(str(path))
+    for name in files:
+        try:
+            path = c.PROJECT / name
+            records[path.parent] = observe(path.parent, 'dir')
+            records[path] = observe(path, 'file')
+        except (OSError, c.Refusal):
+            missing.append(name)
+    return missing, records
+
+
+class Unverifiable(Exception):
+    pass
+
+
+def unit_credentials(paths):
+    """Inspect only credential directives, without opening credential files."""
+    effective = {}
+    encrypted = {}
+    for path in paths:
+        c.chain(path.parent)
+        c.regular(path)
+        if path.stat().st_size > 1024 * 1024:
+            raise Unverifiable()
+        section = b''
+        with path.open('rb') as stream:
+            if not os.fstat(stream.fileno()).st_size:
+                continue
+            with mmap.mmap(stream.fileno(), 0, access=mmap.ACCESS_READ) as data:
+                start, length = 0, len(data)
+                while start < length:
+                    end = data.find(b'\n', start)
+                    if end < 0:
+                        end = length
+                    # A backslash may mean a continuation/escape; do not guess.
+                    if data.find(b'\\', start, end) >= 0:
+                        raise Unverifiable()
+                    pos = start
+                    while pos < end and data[pos] in b' \t\r':
+                        pos += 1
+                    if pos < end and data[pos] not in b'#;':
+                        if data[pos] == ord('['):
+                            section = bytes(data[pos:end]).strip()
+                        else:
+                            eq = data.find(b'=', pos, end)
+                            if eq < 0:
+                                raise Unverifiable()
+                            key = bytes(data[pos:eq]).strip()
+                            if section == b'[Service]' and key in (b'LoadCredential', b'LoadCredentialEncrypted'):
+                                value = bytes(data[eq + 1:end]).strip()
+                                if b'%' in value or b'"' in value or b"'" in value:
+                                    raise Unverifiable()
+                                target = effective if key == b'LoadCredential' else encrypted
+                                if not value:
+                                    target.clear()
+                                else:
+                                    pieces = value.split(b':', 1)
+                                    if len(pieces) != 2 or not pieces[0] or not pieces[1] or any(ch in value for ch in b' \t\r'):
+                                        raise Unverifiable()
+                                    target[pieces[0]] = value
+                    start = end + 1
+    return effective, encrypted
+
+
+def credential_settings():
+    rc, out = c.command(['systemctl', 'show', 'orderguard-api.service',
+                         '--property=LoadCredential', '--property=Environment',
+                         '--property=WorkingDirectory', '--property=User',
+                         '--property=Group', '--property=FragmentPath', '--property=ExecStart',
+                         '--property=DropInPaths', '--property=NeedDaemonReload'])
+    if rc != 0:
+        return 'UNKNOWN'
+    # Parse fixed properties only, never echo the values, which may be sensitive.
+    lines = dict(line.split('=', 1) for line in out.decode('utf-8', 'replace').splitlines() if '=' in line)
+    try:
+        required = ('LoadCredential', 'Environment', 'User', 'Group', 'WorkingDirectory', 'ExecStart', 'FragmentPath')
+        if any(key not in lines or lines[key] == '[unprintable]' for key in required if key != 'LoadCredential'):
+            return 'UNKNOWN'
+        env = shlex.split(lines['Environment'])
+        fragment_text = lines.get('FragmentPath', '')
+        if fragment_text not in ('/etc/systemd/system/orderguard-api.service', '/usr/lib/systemd/system/orderguard-api.service'):
+            return 'UNKNOWN'
+        fragment = Path(fragment_text)
+        c.chain(fragment.parent)
+        c.regular(fragment)
+        exec_start = lines['ExecStart']
+        if not (lines['User'] == 'devops' and lines['Group'] == 'devops'
+                and lines['WorkingDirectory'] == str(c.PROJECT)
+                and '/opt/ops-drill-kit/.venv/bin/python' in exec_start
+                and 'app.main:app' in exec_start and '127.0.0.1' in exec_start and '8000' in exec_start
+                and 'STAGE3_MYSQL_SOCKET=' + SOCKET in env):
+            return 'FAIL'
+        expected = {b'mysql-password': b'mysql-password:/etc/opsdrill/orderguard-app.password',
+                    b'stage3-reader-password': b'stage3-reader-password:/etc/opsdrill/orderguard-stage3-reader.password'}
+        if lines['LoadCredential'] == '[unprintable]':
+            if lines.get('NeedDaemonReload') != 'no' or 'DropInPaths' not in lines or lines['DropInPaths'] == '[unprintable]':
+                return 'UNKNOWN'
+            names = shlex.split(lines['DropInPaths'])
+            if len(names) != len(set(names)) or any(not name.startswith('/') for name in names):
+                return 'UNKNOWN'
+            effective, encrypted = unit_credentials([fragment] + [Path(name) for name in names])
+            if any(name in encrypted for name in expected):
+                return 'UNKNOWN'
+            return 'PASS' if all(effective.get(name) == value for name, value in expected.items()) else 'FAIL'
+        creds = shlex.split(lines['LoadCredential'])
+        return 'PASS' if all(value.decode('ascii') in creds for value in expected.values()) else 'FAIL'
+    except (ValueError, OSError, c.Refusal, Unverifiable, UnicodeError):
+        return 'UNKNOWN'
+
+
+def venv_info():
+    try:
+        path = c.PROJECT / '.venv/bin/python'
+        c.observed_chain(path.parent)
+        link = path.lstat()
+        if not (stat.S_ISREG(link.st_mode) or stat.S_ISLNK(link.st_mode)):
+            return False, []
+        resolved = path.resolve(strict=True)
+        target = resolved.lstat()
+        if not stat.S_ISREG(target.st_mode):
+            return False, []
+        return os.access(resolved, os.X_OK), [(path.parent.parent, path.parent.parent.lstat()),
+                                              (path.parent, path.parent.lstat()),
+                                              (path, link), (resolved, target)]
+    except (OSError, RuntimeError, c.Refusal):
+        return False, []
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.parse_args(argv)
+    failed = []
+    def report(name, status, detail=''):
+        print(f'{status}: {name}' + (f' — {detail}' if detail else ''))
+        if status != 'PASS':
+            failed.append(name)
+
+    report('Rocky Linux 9.8', 'PASS' if os_version() else 'FAIL')
+    vm, marker = c.vm_ok(), c.marker_ok()
+    report('VMware', 'PASS' if vm else 'FAIL')
+    report('实验机标记', 'PASS' if marker else 'FAIL')
+    if not hasattr(os, 'geteuid') or os.geteuid() != 0 or not (vm and marker):
+        print('UNKNOWN: 后续检查 — 需要 root 且 VMware/标记通过')
+        return 2
+    rc, out = c.command(['getenforce'])
+    report('SELinux Enforcing', 'PASS' if rc == 0 and out.strip() == b'Enforcing' else ('UNKNOWN' if rc is None else 'FAIL'))
+    missing, records = has_files()
+    report('必要项目文件', 'PASS' if not missing else 'FAIL', '缺失或类型不符: ' + ', '.join(missing) if missing else '')
+    venv_pass, venv_records = venv_info()
+    report('项目虚拟环境解释器（只检查，不执行）', 'PASS' if venv_pass else 'FAIL')
+    records.update(venv_records)
+    print('INFO: 项目树仅作只读观察；父目录可由非 root 用户修改时，即使文件属主为 root 也不构成 root 可信输入。')
+    for path, st in records.items():
+        print('INFO: 项目对象', path, '—', owner_text(st))
+        if st.st_mode & 0o022 and not stat.S_ISLNK(st.st_mode):
+            report('项目对象组或其他用户可写', 'WARN', str(path))
+    for name, path in [('管理员选项文件', c.ADMIN), ('旧库凭据', c.LEGACY_PASSWORD), ('影子库凭据', c.READER_PASSWORD)]:
+        try:
+            c.protected(path)
+            report(name + '权限', 'PASS')
+        except (OSError, c.Refusal):
+            report(name + '权限', 'FAIL')
+    report('服务凭据和工作目录配置', credential_settings())
+    for service in ('mysqld.service', 'orderguard-api.service', 'nginx.service'):
+        rc, _ = c.command(['systemctl', 'is-active', '--quiet', service])
+        report('服务 ' + service, 'PASS' if rc == 0 else ('UNKNOWN' if rc is None else 'FAIL'))
+    listener_status, listener_detail = mysql_listeners()
+    report('MySQL 本机监听', listener_status, listener_detail)
+    endpoints = [('/health', lambda x: x.get('status') == 'ok' and x.get('service') == 'orderguard-api'),
+                 ('/ready', lambda x: x.get('status') == 'ready' and x.get('database') == 'ok'),
+                 ('/orders/1001', lambda x: x.get('id') == 1001 and x.get('status') == 'paid'),
+                 ('/api/v1/orders?merchant_id=88&page=1&page_size=1',
+                  lambda x: x.get('merchant_id') == 88 and x.get('total') == 25000 and len(x.get('items', [])) == 1)]
+    for path, predicate in endpoints:
+        report('HTTP ' + path, 'PASS' if http(path, predicate) else 'FAIL')
+    status, detail = database()
+    report('MySQL 固定数据只读检查', status, detail)
+    return 2 if failed else 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

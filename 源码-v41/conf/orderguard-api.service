@@ -1,0 +1,18 @@
+[Unit]
+Description=OrderGuard FastAPI Service
+After=network.target
+
+[Service]
+Type=exec
+User=devops
+Group=devops
+WorkingDirectory=/opt/ops-drill-kit
+ExecStart=/opt/ops-drill-kit/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=3
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

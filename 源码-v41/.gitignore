@@ -1,0 +1,25 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+
+# Local credentials
+*.password
+*.secret
+*.cnf
+.env
+.env.*
+
+# Local database artifacts
+*.sql.gz
+*.dump
+*.binlog
+
+# Private keys and operational captures
+*.pem
+*.key
+*.crt
+*.pcap
+*.bak
+!.env.example

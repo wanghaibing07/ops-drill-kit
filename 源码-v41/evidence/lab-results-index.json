@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "description": "代理实验结果摘要索引；原始证据分别保存在执行实验的两台独立实验机，不随安装包分发。",
+  "limitations": "摘要仅校验记录文件字节；不单独证明完整业务恢复、全局无故障或用户本人练习。其他机器缺少这些外部路径属于证据不可用，不应视为通过。",
+  "evidence": [
+    {
+      "drill": "M03",
+      "actor": "agent",
+      "kind": "isolated-app-readiness",
+      "external_path": "/var/backups/opsdrill/M03/app-readiness-1c3373e7bbca236d/result.json",
+      "sha256": "5b32092ee6631cd1bf65ddae1570344a9f6a213ac55c19e2c9f159335aa3d206",
+      "scope": "实际就绪处理器配合连接适配器和隔离合成数据库；不证明未修改的主业务链故障",
+      "execution_host": "newer-clean-lab"
+    },
+    {
+      "drill": "M04",
+      "actor": "agent",
+      "kind": "restored-app-isolated-pitr",
+      "external_path": "/var/backups/opsdrill/M04/app-db-live-4b8f863bade1383e/result.json",
+      "sha256": "2cf3d6f8d381fa0be225136498863bcfea4873e4e6aa60dc9d4e187ca9acd57f",
+      "scope": "还原选定应用文件并读取合成数据库的 PITR 结果；不证明完整生产应用及业务数据库恢复",
+      "execution_host": "newer-clean-lab"
+    },
+    {
+      "drill": "C01",
+      "actor": "agent",
+      "kind": "bounded-gateway-and-pool-observation",
+      "external_path": "/var/backups/opsdrill/C01/window-metrics-665a2125737e210f/result.json",
+      "sha256": "229b9e86691a93a748b8300574c0f608882ceb1c3266b501d99a3d7bf449e7fe",
+      "scope": "三个有限请求窗口；普通 CLI 检查和完整复盘仍为 PARTIAL",
+      "execution_host": "newer-clean-lab"
+    },
+    {
+      "drill": "M04",
+      "actor": "agent",
+      "kind": "restored-app-500000-row-pitr-copy",
+      "execution_host": "earlier-clean-lab",
+      "external_path": "/var/tmp/opsdrill-m04-controller/9d8dd7878bb572db/app-business-result.json",
+      "sha256": "c2ec466b7c06b489b9e38ef47e0797bedcac1311377d53b4e2d6b453aef54cdd",
+      "scope": "先前受控续接的隔离恢复数据库物理副本；还原应用读取样本，不证明生产或一致性快照"
+    },
+    {
+      "drill": "N03",
+      "actor": "agent",
+      "kind": "gateway-502-504-timing",
+      "execution_host": "newer-clean-lab",
+      "external_path": "/var/backups/opsdrill/N03/gateway-evidence-018e9e687a49c41f/result.json",
+      "sha256": "884ba89f338fc635c522028126b71c338493d4eae3477386d17098b214f8e9e9",
+      "scope": "两个故障的有限请求；timing 按请求 ID 关联，错误日志按窗口关联"
+    }
+  ]
+}
