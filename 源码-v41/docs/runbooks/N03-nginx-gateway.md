@@ -20,7 +20,7 @@ sudo systemctl status nginx orderguard-api --no-pager
 sudo ss -lntp
 ```
 
-实验中真实链路的慢请求返回了 504，随后 `/health` 和 `/ready` 返回 200；这是项目的真实自动执行结果，执行者标记为 agent，可用于项目复盘和展示。
+实验中真实链路的慢请求返回了 504，随后 `/health` 和 `/ready` 返回 200；这是项目的真实自动执行结果，执行者标记为 auto，可用于项目复盘和展示。
 
 ## 502 受控实验
 

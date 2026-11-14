@@ -12,7 +12,6 @@ steps=[]
 def run(action,rid=None):
     args=[cli,action,'M04']
     if rid:args+=['--expect-run-id',rid]
-    args+=['--actor','agent']
     cp=subprocess.run(args,capture_output=True,text=True,timeout=300)
     outputs=[]
     for line in cp.stdout.splitlines():

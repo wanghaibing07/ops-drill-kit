@@ -108,7 +108,7 @@ def window(name,expected,with_pool):
          'requests':row_count,'status_counts':counts,'own_requests':seen_count,'pool_before':first,'pool_after':last,
          'timing_sha256':log_sha,'journal_entries':journal_count,'journal_sha256':journal_sha}
 def action(name,rid=None):
- args=[CLI,name,'C01','--actor','agent']
+ args=[CLI,name,'C01']
  if rid:args+=['--expect-run-id',rid]
  q=subprocess.run(args,capture_output=True,text=True,timeout=120,env=env)
  try:r=json.loads(q.stdout)
@@ -120,7 +120,7 @@ try:
  rc,item=action('start');assert rc==0 and item.get('status')=='FAULT_CONFIRMED';rid=item['run_id'];assert re.fullmatch('[0-9a-f]{24}',rid)
  rc,item=action('check',rid);assert rc==1 and item.get('status')=='FAULT_PRESENT'
  fault=window('fault',502,False)
- note=subprocess.run([CLI,'note','C01','--kind','diagnosis','--actor','agent'],capture_output=True,text=True,timeout=30,env=env);assert note.returncode==0
+ note=subprocess.run([CLI,'note','C01','--kind','diagnosis'],capture_output=True,text=True,timeout=30,env=env);assert note.returncode==0
  rc,item=action('resolve',rid);assert rc==0 and item.get('status')=='MITIGATED'
  rc,item=action('check',rid);assert rc==2 and item.get('status')=='RECOVERED_PARTIAL'
  code,_,_=fetch('http://127.0.0.1:8080/__opsdrill/pool-metrics');assert code==404
@@ -129,11 +129,11 @@ try:
  assert r5*pre['requests']<=b5*recovered['requests']
  rc,item=action('reset',rid);assert rc==0 and item.get('status')=='CLEANUP_PASS';clean=True
  status,_,ready=fetch('http://127.0.0.1:8080/ready');assert status==200 and ready['status']=='ready'
- result={'actor':'agent','run_id':rid,'status':'BOUNDED_AUTOMATED_OBSERVATION_PASS','scope':'three finite gateway windows; two instrumented pools during recovery only; not global zero errors or user RCA','baseline':pre,'fault':fault,'recovered':recovered,'ready_after':200,'cli_check':'RECOVERED_PARTIAL'}
+ result={'run_id':rid,'status':'BOUNDED_AUTOMATED_OBSERVATION_PASS','scope':'three finite gateway windows; two instrumented pools during recovery only; not global zero errors or user RCA','baseline':pre,'fault':fault,'recovered':recovered,'ready_after':200,'cli_check':'RECOVERED_PARTIAL'}
  path=outdir/'result.json';out=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
  with os.fdopen(out,'w') as f:json.dump(result,f,sort_keys=True);f.write('\n');f.flush();os.fsync(f.fileno())
  digest=hashlib.sha256(path.read_bytes()).hexdigest()
- q=subprocess.run([CLI,'check','C01','--actor','agent','--expect-run-id',rid,'--evidence-dir',str(outdir),'--expected-sha256',digest],capture_output=True,text=True,timeout=120,env=env)
+ q=subprocess.run([CLI,'check','C01','--expect-run-id',rid,'--evidence-dir',str(outdir),'--expected-sha256',digest],capture_output=True,text=True,timeout=120,env=env)
  try:assessment=json.loads(q.stdout)
  except ValueError:assessment={}
  assert q.returncode==0 and assessment.get('status')=='BOUNDED_OBSERVATION_PASS' and assessment.get('run_id')==rid and assessment.get('result_sha256')==digest

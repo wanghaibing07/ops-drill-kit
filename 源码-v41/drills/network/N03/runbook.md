@@ -6,12 +6,12 @@
 
 ```bash
 sudo bin/opsdrill status
-sudo bin/opsdrill start N03 --variant 502 --actor user
-# 或：sudo bin/opsdrill start N03 --variant 504 --actor user
-sudo bin/opsdrill check N03 --actor user --expect-run-id RUN_ID
+sudo bin/opsdrill start N03 --variant 502
+# 或：sudo bin/opsdrill start N03 --variant 504
+sudo bin/opsdrill check N03 --expect-run-id RUN_ID
 ```
 
-只有用户亲自操作时才用 `actor=user`；自动测试使用 `actor=agent`。有效故障的 check 返回 1，环境或状态不符返回 2。没有活动演练时 check 不代表通过。
+有效故障的 check 返回 1，环境或状态不符返回 2。没有活动演练时 check 不代表通过。
 
 ## 最初排查
 
@@ -33,10 +33,10 @@ sudo tail -n 50 /var/log/nginx/orderguard-error.log
 
 ```bash
 sudo /usr/bin/python3 -I -B /usr/local/libexec/opsdrill/n03/n03_502.py resolve RUN_ID
-sudo bin/opsdrill check N03 --actor user --expect-run-id RUN_ID
+sudo bin/opsdrill check N03 --expect-run-id RUN_ID
 curl -i --max-time 5 http://127.0.0.1:8080/health
 curl -i --max-time 5 http://127.0.0.1:8080/ready
-sudo bin/opsdrill reset N03 --actor user --expect-run-id RUN_ID
+sudo bin/opsdrill reset N03 --expect-run-id RUN_ID
 ```
 
 安全复位后可对同一 ID 重复 reset；若已有另一轮演练，期望 ID 不匹配时会拒绝。若控制器提示身份、配置或状态不一致，保留现场并检查，不要手动删除未知文件或停止未知定时器。
@@ -47,11 +47,11 @@ sudo bin/opsdrill reset N03 --actor user --expect-run-id RUN_ID
 
 ## 自动验收
 
-`sudo bash tests/contract/n03.sh` 自动测试两个变体，事件为 `actor=agent`。它验证实际故障、按 ID 恢复、检查、复位、重复复位和错误 ID 拒绝，可用于项目复盘和展示。
+`sudo bash tests/contract/n03.sh` 自动测试两个变体。它验证实际故障、按 ID 恢复、检查、复位、重复复位和错误 ID 拒绝，可用于项目复盘和展示。
 
 ## 看门狗实机验证（2026-11-12）
 
-在隔离恢复副本中，分别由 `actor=agent` 发起 502 和 504，先确认故障，再等待原有 120 秒定时器自行触发。502 的看门狗启动订单服务，504 的看门狗移除本轮慢接口开关；两次恢复检查和按运行 ID 复位均通过。证据分别保存在本机 `/var/backups/opsdrill/network-verification-fa3959f8c83831e5/N03-502.json` 和 `/var/backups/opsdrill/network-verification-fa3959f8c83831e5/N03-504.json`，并可通过其中记录的 systemd invocation ID 查本次日志。
+在隔离恢复副本中，分别发起 502 和 504，先确认故障，再等待原有 120 秒定时器自行触发。502 的看门狗启动订单服务，504 的看门狗移除本轮慢接口开关；两次恢复检查和按运行 ID 复位均通过。证据分别保存在本机 `/var/backups/opsdrill/network-verification-fa3959f8c83831e5/N03-502.json` 和 `/var/backups/opsdrill/network-verification-fa3959f8c83831e5/N03-504.json`，并可通过其中记录的 systemd invocation ID 查本次日志。
 
 此前一次 502 看门狗也启动了服务，但验证脚本因 systemd 回收瞬时单元后 `InvocationID` 为空而提前退出；该次的恢复检查未执行。随后改用服务自身 journal 中的 invocation ID 验证，并重新完成上述 502 测试。以上不代表已经验证虚拟机重启、挂起恢复或所有异常退出路径。
 ## 官方参考
@@ -64,6 +64,6 @@ sudo bin/opsdrill reset N03 --actor user --expect-run-id RUN_ID
 
 补装固定的门控环境配置并重启实验 API 后，未开启门控时慢接口仍返回 404，业务 readiness 为 200。随后分别通过统一 CLI 验证实际 502 和 504、故障时 check、恢复后 check 及同轮复位；两次响应的请求 ID 分别与独立 timing 日志对应，错误日志在各自有限时间窗口内分别包含连接拒绝和上游超时的证据。错误日志没有与响应相同的请求 ID，因此只是按窗口关联。原始日志未加入安装包。
 
-精简结果位于 `/var/backups/opsdrill/N03/gateway-evidence-018e9e687a49c41f/result.json`，SHA256 `884ba89f338fc635c522028126b71c338493d4eae3477386d17098b214f8e9e9`；事件和结果使用 `actor=agent`。该结果只覆盖本机两个有限请求，不代表所有 502／504 均由这两种原因造成，也不代表虚拟机挂起或重启后的行为已验收。
+精简结果位于 `/var/backups/opsdrill/N03/gateway-evidence-018e9e687a49c41f/result.json`，SHA256 `884ba89f338fc635c522028126b71c338493d4eae3477386d17098b214f8e9e9`；。该结果只覆盖本机两个有限请求，不代表所有 502／504 均由这两种原因造成，也不代表虚拟机挂起或重启后的行为已验收。
 
 新版 bootstrap 在启动业务栈前准备此受保护 drop-in：已有相同文件时保留，冲突、不安全目录或符号链接时拒绝。目录创建、重复执行、冲突拒绝和模拟启动顺序已验证；新版安装包尚未在另一台空盘完成完整 bootstrap。

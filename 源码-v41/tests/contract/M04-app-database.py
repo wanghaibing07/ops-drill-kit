@@ -40,7 +40,7 @@ for name,digest in expected.items():
 backup=mod.backup(lab,'source','backups/run',tuple(expected))
 cli=str(project/'bin/opsdrill');rid=None;clean=False
 def run(action,run_id=None):
-    args=[cli,action,'M04','--actor','agent']
+    args=[cli,action,'M04']
     if run_id:args+=['--expect-run-id',run_id]
     cp=subprocess.run(args,capture_output=True,text=True,timeout=900)
     output=[]
@@ -62,7 +62,7 @@ try:
     cp,items=run('reset',rid);assert cp.returncode==0 and items[-1].get('status')=='STOPPED'
     clean=True
     with urllib.request.urlopen('http://127.0.0.1:8080/ready',timeout=5) as response:assert response.status==200
-    result={'status':'PASS','actor':'agent','run_id':rid,'files':len(expected),'manifest_sha256':sha(backup/'manifest.json'),
+    result={'status':'PASS','run_id':rid,'files':len(expected),'manifest_sha256':sha(backup/'manifest.json'),
             'scope':'selected non-secret app files and isolated synthetic database; not a coordinated production snapshot',
             'time_ns':time.time_ns()}
     with (lab/'result.json').open('x',encoding='utf8') as f:json.dump(result,f,sort_keys=True);f.write('\n');f.flush();os.fsync(f.fileno())

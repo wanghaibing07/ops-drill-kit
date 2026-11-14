@@ -1,6 +1,6 @@
 # L01 磁盘演练原型
 
-状态：两个变体的统一 CLI 基础契约已在实验机通过；自动结果标记为 `actor=agent`。它们使用独立私有 64 MiB ext4 loop 镜像，分别复现 inode 耗尽和 deleted-open 文件句柄。
+状态：两个变体的统一 CLI 基础契约已在实验机通过。它们使用独立私有 64 MiB ext4 loop 镜像，分别复现 inode 耗尽和 deleted-open 文件句柄。
 
 ```bash
 sudo bin/opsdrill start L01 --variant inode

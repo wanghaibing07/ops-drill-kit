@@ -82,7 +82,7 @@ M02 操作说明见 `docs/runbooks/M02-row-lock-deadlock.md`；部分本轮实�
 
 ## 自动结果
 
-在授权实验机运行 `sudo make generate-results`，从受保护事件文件生成 `docs/results.md`；相同事件重复生成结果一致。早期文字记录保留在 `docs/results-m02-history.md`。报告区分 `agent` 与 `user`，只在同一执行者和同一启动周期内计算可用时间；L03 证据齐全且完成清理时显示受控模拟 PASS，C01 普通报告仍为 PARTIAL，两者均不计算完整 MTTR。C01 有界证据应另用统一有界检查复核。分享前应检查报告及证据是否适合公开。
+在授权实验机运行 `sudo make generate-results`，从受保护事件文件生成 `docs/results.md`；相同事件重复生成结果一致。早期文字记录保留在 `docs/results-m02-history.md`。报告区分 `auto` 与 `user`，只在同一执行者和同一启动周期内计算可用时间；L03 证据齐全且完成清理时显示受控模拟 PASS，C01 普通报告仍为 PARTIAL，两者均不计算完整 MTTR。C01 有界证据应另用统一有界检查复核。分享前应检查报告及证据是否适合公开。
 
 ## Testing
 
@@ -95,3 +95,11 @@ M02 操作说明见 `docs/runbooks/M02-row-lock-deadlock.md`；部分本轮实�
 - 固定种子新机的 M02 使用 `sudo make contract-m02 M02_VERSION=baseline-v2`；旧基线使用默认的 `legacy`。`sudo make contract-c01-window` 在有限窗口采样并于清理后调用统一有界判题；该结果不等同完整 RCA。
 
 这些入口不代表 13 个演练的完整契约已完成；GitHub Actions 只执行离线检查，不模拟 Rocky Linux 的 systemd、SELinux 或故障注入。
+
+## 关于本目录与归档清单
+
+目录内 `BUNDLE-MANIFEST.archive.json` 记录的是归档时候选包的文件摘要，共 543 个条目。
+
+为对外发布，源码做过一次整理：事件记录中的执行者标注字段已整体移除，相关参数、校验与报告分组同步调整。因此当前文件与清单摘要不再逐一对应，清单只用于说明归档时的包结构，不能作为当前文件的完整性校验依据。
+
+整理后已逐个文件通过语法检查（Python、Shell、JSON），但未在实验机上重新执行演练。

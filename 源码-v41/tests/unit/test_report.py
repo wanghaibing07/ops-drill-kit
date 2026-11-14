@@ -17,8 +17,7 @@ class ReportTests(unittest.TestCase):
 
     def test_user_times_only_with_matching_monotonic_clock(self):
         def event(kind, ns, **extra):
-            return {'drill_id':'L01','attempt_id':'L01-20261112-001','event':kind,'actor':'user',
-                    'boot_id':'one','monotonic_ns':ns,**extra}
+            return {'drill_id':'L01','attempt_id':'L01-20261112-001','event':kind,'boot_id':'one','monotonic_ns':ns,**extra}
         events=[event('inject',1_000_000_000,result='PASS'),event('diagnosis',3_000_000_000),
                 event('check',4_000_000_000,result='FAIL'),event('check',7_000_000_000,result='PASS')]
         row=report.summarize(map(json.dumps,events))['attempts'][0]
@@ -27,29 +26,14 @@ class ReportTests(unittest.TestCase):
         events[-1]['boot_id']='other'
         self.assertIsNone(report.summarize(map(json.dumps,events))['attempts'][0]['mttr_proxy_seconds'])
 
-    def test_automation_timing_keeps_actor_and_rejects_mixed_actors(self):
-        a={'drill_id':'M01','attempt_id':'M01-20261112-002','event':'inject','result':'PASS',
-           'actor':'agent','boot_id':'b','monotonic_ns':1_000_000_000}
-        b={**a,'event':'check','monotonic_ns':3_000_000_000}
-        row=report.summarize(map(json.dumps,[a,b]))['attempts'][0]
-        self.assertEqual((row['actor'],row['mttr_proxy_seconds']),('agent',2.0))
-        b['actor']='user'
-        self.assertIsNone(report.summarize(map(json.dumps,[a,b]))['attempts'][0]['mttr_proxy_seconds'])
-
-    def test_incomplete_injection_actor_requires_consensus(self):
+    def test_incomplete_injection_reports_no_timing(self):
         start={'drill_id':'M04','attempt_id':'M04-20261112-364997','event':'inject',
-               'result':'STARTING','actor':'agent','boot_id':'b','monotonic_ns':1}
+               'result':'STARTING','boot_id':'b','monotonic_ns':1}
         failed={**start,'result':'FAIL','monotonic_ns':2}
         row=report.summarize(map(json.dumps,[start,failed]))['attempts'][0]
-        self.assertEqual((row['actor'],row['status']),('agent','INCOMPLETE'))
+        self.assertEqual(row['status'],'INCOMPLETE')
         self.assertIsNone(row['mttd_proxy_seconds'])
         self.assertIsNone(row['mttr_proxy_seconds'])
-        failed['actor']='user'
-        self.assertEqual(report.summarize(map(json.dumps,[start,failed]))['attempts'][0]['actor'],'unknown')
-        del failed['actor']
-        self.assertEqual(report.summarize(map(json.dumps,[start,failed]))['attempts'][0]['actor'],'unknown')
-        failed['actor']=['agent']
-        self.assertEqual(report.summarize(map(json.dumps,[start,failed]))['attempts'][0]['actor'],'unknown')
 
     def test_check_before_inject_is_not_a_success(self):
         check={'drill_id':'L01','attempt_id':'L01-20261112-003','event':'check','result':'PASS'}

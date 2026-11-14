@@ -74,7 +74,7 @@ class StoreTests(unittest.TestCase):
         lock_patch=mock.patch.object(m.fcntl,'flock'); lock_patch.start(); self.addCleanup(lock_patch.stop)
         self.store=m.Store()
         self.receipt={'kind':'C01_APP_DOWN_V1','run_id':'a'*24,'owner_id':'b'*32,'timer':'opsdrill-n03-recover-'+'a'*24+'.timer'}
-        self.record={'version':1,'receipt':self.receipt,'actor':'agent','boot_id':BOOT}
+        self.record={'version':1,'receipt':self.receipt,'boot_id':BOOT}
     def test_write_and_fsync_receipt_before_backend(self):
         class Backend:
             def call(inner, action, receipt):
@@ -83,13 +83,13 @@ class StoreTests(unittest.TestCase):
                 self.assertTrue(len(self.fake.syncs)>=4)
                 return 0, receipt
         # Fake flock is a no-op. Production relies on flock and must be tested on Linux.
-        rc,out=m.Controller(self.store,Backend(),lambda:BOOT).execute('start','agent')
+        rc,out=m.Controller(self.store,Backend(),lambda:BOOT).execute('start','auto')
         self.assertEqual((rc,out['status']), (0,'FAULT_CONFIRMED'))
     def test_sync_failure_never_invokes_backend(self):
         backend=mock.Mock()
         # fail after store directory creation, during creation of current or record
         self.fake.fail_sync=3
-        with self.assertRaises(OSError): m.Controller(self.store,backend,lambda:BOOT).execute('start','agent')
+        with self.assertRaises(OSError): m.Controller(self.store,backend,lambda:BOOT).execute('start','auto')
         backend.call.assert_not_called()
         self.fake.fail_sync=None
         with self.store.locked() as fd:
@@ -145,50 +145,50 @@ class LifecycleTests(unittest.TestCase):
     def setUp(self): self.store=MemoryStore(); self.backend=mock.Mock(); self.controller=m.Controller(self.store,self.backend,lambda:BOOT)
     def test_interrupted_start_keeps_identity_and_blocks_next(self):
         self.backend.call.side_effect=RuntimeError('killed')
-        with self.assertRaises(RuntimeError): self.controller.execute('start','agent')
+        with self.assertRaises(RuntimeError): self.controller.execute('start','auto')
         receipt=self.store.record['receipt']; m.validate_receipt(receipt)
         self.backend.call.reset_mock()
-        with self.assertRaisesRegex(m.Refused,'C01_RECEIPT_ALREADY_PRESENT'): self.controller.execute('start','agent')
+        with self.assertRaisesRegex(m.Refused,'C01_RECEIPT_ALREADY_PRESENT'): self.controller.execute('start','auto')
         self.backend.call.assert_not_called()
         _,status=self.controller.execute('status','unknown')
-        self.assertEqual((status['run_id'], status['status'],status['actor']),(receipt['run_id'],'RECEIPT_PRESENT_UNVERIFIED','agent'))
+        self.assertEqual((status['run_id'], status['status']),(receipt['run_id'],'RECEIPT_PRESENT_UNVERIFIED'))
     def test_wrong_run_boot_missing_and_done_never_call_backend(self):
         self.backend.call.side_effect=RuntimeError()
-        with self.assertRaises(RuntimeError): self.controller.execute('start','agent')
+        with self.assertRaises(RuntimeError): self.controller.execute('start','auto')
         self.backend.call.reset_mock(); rid=self.store.record['receipt']['run_id']
         for run in ('f'*24,None):
-            with self.assertRaises(m.Refused): self.controller.execute('reset','agent',run)
+            with self.assertRaises(m.Refused): self.controller.execute('reset','auto',run)
         self.store.record['boot_id']='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
-        with self.assertRaisesRegex(m.Refused,'BOOT_CHANGED'): self.controller.execute('reset','agent',rid)
+        with self.assertRaisesRegex(m.Refused,'BOOT_CHANGED'): self.controller.execute('reset','auto',rid)
         self.store.done=True
-        with self.assertRaisesRegex(m.Refused,'RUN_ALREADY_CLEANED'): self.controller.execute('reset','agent',rid)
+        with self.assertRaisesRegex(m.Refused,'RUN_ALREADY_CLEANED'): self.controller.execute('reset','auto',rid)
         self.backend.call.assert_not_called()
     def test_reset_success_then_duplicate_refused(self):
         self.backend.call.return_value=(0,{})
-        _,out=self.controller.execute('start','agent'); rid=out['run_id']
-        rc,out=self.controller.execute('reset','agent',rid)
+        _,out=self.controller.execute('start','auto'); rid=out['run_id']
+        rc,out=self.controller.execute('reset','auto',rid)
         self.assertEqual((rc,out['status']), (0,'CLEANUP_PASS'))
         self.assertTrue(self.store.done)
         self.backend.call.reset_mock()
-        with self.assertRaisesRegex(m.Refused,'RUN_ALREADY_CLEANED'): self.controller.execute('reset','agent',rid)
+        with self.assertRaisesRegex(m.Refused,'RUN_ALREADY_CLEANED'): self.controller.execute('reset','auto',rid)
         self.backend.call.assert_not_called()
     def test_failed_reset_keeps_receipt_and_no_done(self):
         self.backend.call.return_value=(0,{})
-        _,out=self.controller.execute('start','agent'); rid=out['run_id']
+        _,out=self.controller.execute('start','auto'); rid=out['run_id']
         self.backend.call.side_effect=m.Refused('N03_REFUSED_OR_FAILED')
-        with self.assertRaises(m.Refused): self.controller.execute('reset','agent',rid)
+        with self.assertRaises(m.Refused): self.controller.execute('reset','auto',rid)
         self.assertFalse(self.store.done); self.assertEqual(self.store.record['receipt']['run_id'],rid)
     def test_check_never_reports_full_success(self):
         self.backend.call.return_value=(0,{})
-        _,out=self.controller.execute('start','agent'); rid=out['run_id']
-        rc,out=self.controller.execute('check','agent',rid)
+        _,out=self.controller.execute('start','auto'); rid=out['run_id']
+        rc,out=self.controller.execute('check','auto',rid)
         self.assertEqual((rc,out['status'],out['overall']), (2,'RECOVERED_PARTIAL','INCOMPLETE'))
     def test_concurrent_start_only_one_backend_call(self):
         gate=threading.Barrier(2)
         self.backend.call.return_value=(0,{})
         def attempt(i):
             gate.wait()
-            try: return self.controller.execute('start','agent')[0]
+            try: return self.controller.execute('start','auto')[0]
             except m.Refused: return 2
         with ThreadPoolExecutor(max_workers=2) as ex: values=list(ex.map(attempt,range(2)))
         self.assertCountEqual(values,[0,2]); self.assertEqual(self.backend.call.call_count,1)
@@ -241,11 +241,11 @@ class N03AndCLITests(unittest.TestCase):
             with self.assertRaisesRegex(n.Refused,'SERVICE_STATE_AMBIGUOUS'): n.check(rid,(rid,owner))
 
     def test_cli_dispatch_and_required_expected_id(self):
-        args=types.SimpleNamespace(drill='C01',command='reset',actor='agent',expect_run_id='a'*24)
+        args=types.SimpleNamespace(drill='C01',command='reset',expect_run_id='a'*24)
         with mock.patch.object(cli,'require_root'), mock.patch.object(cli,'safe_dir'), mock.patch.object(cli,'open_lock',return_value=3), \
              mock.patch.object(cli.os,'close'), mock.patch.object(cli,'c01_call',return_value=types.SimpleNamespace(returncode=0)) as command, \
              mock.patch.object(cli,'read_state',return_value=None) as read:
-            self.assertEqual(cli.action(args),0); command.assert_called_once_with('reset','agent','a'*24); read.assert_called_once_with('C01')
+            self.assertEqual(cli.action(args),0); command.assert_called_once_with('reset','auto','a'*24); read.assert_called_once_with('C01')
             args.expect_run_id=None
             with self.assertRaises(cli.Refused): cli.action(args)
             self.assertEqual(command.call_count,1)
@@ -289,7 +289,7 @@ class PinnedFilesTests(unittest.TestCase):
             with self.subTest(fsync=point):
                 fake=FakeOS(); fake.fail_sync=point; backend=mock.Mock()
                 with mock.patch.object(m,'os',fake):
-                    with self.assertRaises(OSError): m.Controller(m.Store(),backend,lambda:BOOT).execute('start','agent')
+                    with self.assertRaises(OSError): m.Controller(m.Store(),backend,lambda:BOOT).execute('start','auto')
                 backend.call.assert_not_called()
 
 if __name__=='__main__': unittest.main(verbosity=2)

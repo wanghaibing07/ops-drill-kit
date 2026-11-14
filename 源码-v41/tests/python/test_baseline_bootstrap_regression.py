@@ -27,7 +27,7 @@ class TestAdminStartPath(unittest.TestCase):
             state=Path(parent)/'state'
             with patch.object(mod.c,'STATE',state),patch.object(mod.c,'chain'),patch.object(mod,'preflight',return_value=(object(),None)),patch.object(mod,'save'),patch.object(mod,'install_config'),patch.object(mod,'run',return_value=b''),patch.object(mod.importlib.util,'spec_from_file_location',side_effect=BoundaryReached('identity loader reached')) as loader:
                 with self.assertRaises(BoundaryReached):
-                    mod.main(['--apply','--actor','agent'])
+                    mod.main(['--apply'])
                 self.assertEqual(loader.call_count,1)
 
 class TestBootstrapLayout(unittest.TestCase):

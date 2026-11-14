@@ -2,7 +2,7 @@
 
 本演练只启动有时限的独立临时服务，不改变系统默认限制或现有业务服务。低上限下实际出现 EMFILE；修复时通过本轮 run ID 创建较高上限的临时服务。
 
-使用 `opsdrill start L04 --actor agent` 取得 run_id；`check`、`resolve`、`reset` 都需要 `--expect-run-id`。检查返回 1 表示确认故障，修复后返回 0。`sudo make contract-l04` 执行真实注入，仅限授权实验 VM。
+使用 `opsdrill start L04` 取得 run_id；`check`、`resolve`、`reset` 都需要 `--expect-run-id`。检查返回 1 表示确认故障，修复后返回 0。`sudo make contract-l04` 执行真实注入，仅限授权实验 VM。
 
 服务超时或启动时身份未能落盘可能需要人工核查，不能按名字批量停止未知单元。自动执行不计入人工演练时长。
 

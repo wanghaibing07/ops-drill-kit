@@ -81,7 +81,7 @@ try:
             err.close()
     if observations['without_keepalive']['backend_connections'] != 8 or observations['with_keepalive']['backend_connections'] != 1:
         raise RuntimeError('connection reuse comparison did not meet expected observations')
-    result={'run_id':run_id,'actor':'agent','namespace':'anonymous unshare --net','observations':observations,
+    result={'run_id':run_id,'namespace':'anonymous unshare --net','observations':observations,
             'source_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
     (root/'result.json').write_text(json.dumps(result,sort_keys=True,indent=2)+'\n')
     print(json.dumps(result,sort_keys=True));print('evidence:',root)

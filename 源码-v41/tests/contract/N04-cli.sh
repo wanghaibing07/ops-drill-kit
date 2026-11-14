@@ -6,7 +6,7 @@ cli="$project/bin/opsdrill"
 [[ ${EUID} -eq 0 ]] || { echo 'root required' >&2; exit 2; }
 rid='<unknown>'
 trap 'echo "N04 contract interrupted; inspect protected CLI state and run ${rid}; do not guess ownership" >&2' ERR
-if receipt=$("$cli" start N04 --actor agent); then start_rc=0; else start_rc=$?; fi
+if receipt=$("$cli" start N04); then start_rc=0; else start_rc=$?; fi
 # No parseable receipt means there is no safe ID to reset here; inspect CLI state.
 if ! parsed=$(printf '%s' "$receipt" | /usr/bin/python3 -c '
 import json,re,sys
@@ -38,37 +38,37 @@ assert isinstance(x["attempt_id"],str)
 print(x["attempt_id"])' "$rid" "$version")
 if [[ $start_rc -ne 0 ]]; then
     echo "N04 start did not prove a fault (rc=$start_rc); resetting same recorded run" >&2
-    "$cli" reset N04 --expect-run-id "$rid" --actor agent
+    "$cli" reset N04 --expect-run-id "$rid"
     exit 2
 fi
 # Ensure successful start really reached ACTIVE before fault checks.
 /usr/bin/python3 -c 'import json; assert json.load(open("/var/lib/opsdrill/cli/N04.json",encoding="utf-8"))["phase"]=="ACTIVE"'
 unknown=$(/usr/bin/python3 -c 'import os,secrets; roots=("/run/opsdrill-n04","/run/opsdrill-n04-recovery-v2"); x=secrets.token_hex(12); assert all(not os.path.lexists(os.path.join(r,x)) for r in roots); print(x)')
-if "$cli" reset N04 --expect-run-id "$unknown" --actor agent; then echo 'unknown active run accepted' >&2; exit 1; fi
-if "$cli" check N04 --expect-run-id "$rid" --actor agent; then rc=0; else rc=$?; fi
+if "$cli" reset N04 --expect-run-id "$unknown"; then echo 'unknown active run accepted' >&2; exit 1; fi
+if "$cli" check N04 --expect-run-id "$rid"; then rc=0; else rc=$?; fi
 if [[ $rc -ne 1 ]]; then
     echo "N04 fault not proven (check=$rc); stopping owned run; contract inconclusive" >&2
-    "$cli" reset N04 --expect-run-id "$rid" --actor agent
+    "$cli" reset N04 --expect-run-id "$rid"
     exit 2
 fi
-"$cli" resolve N04 --expect-run-id "$rid" --actor agent
-"$cli" check N04 --expect-run-id "$rid" --actor agent
-"$cli" reset N04 --expect-run-id "$rid" --actor agent
+"$cli" resolve N04 --expect-run-id "$rid"
+"$cli" check N04 --expect-run-id "$rid"
+"$cli" reset N04 --expect-run-id "$rid"
 # Once state has been removed, select v2 explicitly; default remains legacy.
 repeat_args=()
 if [[ $version == recovery-v2 ]]; then repeat_args=(--n04-version recovery-v2); fi
-repeat=$("$cli" reset N04 --expect-run-id "$rid" "${repeat_args[@]}" --actor agent)
+repeat=$("$cli" reset N04 --expect-run-id "$rid" "${repeat_args[@]}")
 printf '%s' "$repeat" | /usr/bin/python3 -c '
 import json,sys
 x=json.load(sys.stdin)
 assert x.get("run_id")==sys.argv[1] and x.get("action")=="reset" and x.get("ok") is True
 assert x.get("service_stopped") is True and x.get("already_completed") is True' "$rid"
-if "$cli" reset N04 --expect-run-id "$unknown" --actor agent; then echo 'unknown legacy completed run accepted' >&2; exit 1; fi
-if [[ $version == recovery-v2 ]] && "$cli" reset N04 --expect-run-id "$unknown" --n04-version recovery-v2 --actor agent; then echo 'unknown v2 completed run accepted' >&2; exit 1; fi
+if "$cli" reset N04 --expect-run-id "$unknown"; then echo 'unknown legacy completed run accepted' >&2; exit 1; fi
+if [[ $version == recovery-v2 ]] && "$cli" reset N04 --expect-run-id "$unknown" --n04-version recovery-v2; then echo 'unknown v2 completed run accepted' >&2; exit 1; fi
 # Optional, supplied existing old completion: default routing must still reach legacy.
 if [[ -n ${N04_LEGACY_COMPLETED_ID:-} ]]; then
     [[ $N04_LEGACY_COMPLETED_ID =~ ^[0-9a-f]{24}$ && $N04_LEGACY_COMPLETED_ID != "$rid" ]] || { echo 'invalid historical legacy ID' >&2; exit 2; }
-    legacy=$("$cli" reset N04 --expect-run-id "$N04_LEGACY_COMPLETED_ID" --actor agent)
+    legacy=$("$cli" reset N04 --expect-run-id "$N04_LEGACY_COMPLETED_ID")
     printf '%s' "$legacy" | /usr/bin/python3 -c 'import json,sys; x=json.load(sys.stdin); assert x.get("run_id")==sys.argv[1] and x.get("action")=="reset" and x.get("ok") is True and x.get("service_stopped") is True and x.get("already_completed") is True' "$N04_LEGACY_COMPLETED_ID"
 else
     echo 'N04 historical legacy receipt compatibility: SKIPPED (no historical ID supplied)' >&2

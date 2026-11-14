@@ -2,7 +2,7 @@
 import argparse,contextlib,hashlib,importlib.util,io,json,os,pwd,secrets,shutil,stat,subprocess,sys,time
 from pathlib import Path
 from unittest.mock import patch
-p=argparse.ArgumentParser();p.add_argument('--vm-uuid',required=True);p.add_argument('--apply',action='store_true');p.add_argument('--actor',choices=('agent',));a=p.parse_args();assert a.apply and a.actor=='agent' and os.geteuid()==0 and Path('/sys/class/dmi/id/product_uuid').read_text().strip().lower()==a.vm_uuid
+p=argparse.ArgumentParser();p.add_argument('--vm-uuid',required=True);p.add_argument('--apply',action='store_true');a=p.parse_args();assert a.apply and os.geteuid()==0 and Path('/sys/class/dmi/id/product_uuid').read_text().strip().lower()==a.vm_uuid
 ROOT=Path('/usr/local/libexec/opsdrill/m04-synthetic-v3');M02=Path('/usr/local/libexec/opsdrill/m02-baseline-v2/m02_deadlock.py')
 pins={ROOT/'m04_controller.py':'46d4a9fa610dcfceadc2d3dc5f0bbb91f151b899644a332a59c456370496d9f9',ROOT/'continuation/mysql_live_identity.py':'c294cfa07973ef9342d4ca65147da14acbe6fa155ad29623edcda31fc48a42be',ROOT/'continuation/mysql_reset_gate.py':'eff466c8ad9dc5f7d2012a1b93aca33ffbb763d52ba8c39429f34ad7623178af',M02:'11e7e49054d660e521dc5aa0b0c2dab146bd6f9509634d5166e461d83a295b6c'}
 for path,digest in pins.items():
@@ -20,7 +20,7 @@ spec=importlib.util.spec_from_file_location('m02_fixture_controller',M02);m=impo
 available=next(int(x.split()[1]) for x in Path('/proc/meminfo').read_text().splitlines() if x.startswith('MemAvailable:'))
 assert available>600*1024 and shutil.disk_usage('/var/tmp').free>2*1024**3
 ctl.setup();rid=secrets.token_hex(8);directory=ctl.BASE/rid;directory.mkdir(mode=0o700);lock=ctl.locked(directory)
-boot,now=ctl.boot_context();state={'version':1,'run_id':rid,'phase':'PREPARING','primary_uuid':live.SENTINEL,'uuids':{},'attempted':[],'boot_id':boot,'deadline_boottime':now+900,'business_phase':'TEST_ONLY','candidate_phase':'STARTING','actor':'agent'};ctl.save(directory,state)
+boot,now=ctl.boot_context();state={'version':1,'run_id':rid,'phase':'PREPARING','primary_uuid':live.SENTINEL,'uuids':{},'attempted':[],'boot_id':boot,'deadline_boottime':now+900,'business_phase':'TEST_ONLY','candidate_phase':'STARTING'};ctl.save(directory,state)
 print('isolated M02 fixture run',rid,flush=True);bound=False;clean=False
 original_command=ctl.command
 def command(r,label):
@@ -70,7 +70,7 @@ try:
    for file in (admin,writer):
     st=file.lstat();assert stat.S_ISREG(st.st_mode) and st.st_uid==0 and stat.S_IMODE(st.st_mode)==0o600 and st.st_nlink==1;file.unlink()
    phase('STOPPING');live.reset(rid,state,directory);clean=True;phase('M02_FIXTURE_VERIFIED_STOPPED')
-   result={'actor':'agent','run_id':rid,'m02_owner_run_id':owned,'status':'PASS','scope':'baseline-v2 isolated socket-only synthetic fixture; controller inject/check/reset twice; not production or normal CLI','fixture_sha256':hashlib.sha256(fixture).hexdigest(),'m02_evidence_sha256':mstate['evidence_sha256'],'controller_sha256':pins[M02],'source_uuid':state['uuids']['source'],'target_uuid':state['uuids']['target'],'credentials_retained':False}
+   result={'run_id':rid,'m02_owner_run_id':owned,'status':'PASS','scope':'baseline-v2 isolated socket-only synthetic fixture; controller inject/check/reset twice; not production or normal CLI','fixture_sha256':hashlib.sha256(fixture).hexdigest(),'m02_evidence_sha256':mstate['evidence_sha256'],'controller_sha256':pins[M02],'source_uuid':state['uuids']['source'],'target_uuid':state['uuids']['target'],'credentials_retained':False}
    fd=os.open(directory/'m02-fixture-result.json',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
    with os.fdopen(fd,'w') as f:json.dump(result,f,sort_keys=True);f.write('\n');f.flush();os.fsync(f.fileno())
    print('isolated M02 fixture passed',rid,flush=True)

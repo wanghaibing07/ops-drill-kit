@@ -17,7 +17,7 @@ class L02EntryTests(unittest.TestCase):
             os.chmod(cli,0o755)
             for filename,action in (('inject.sh','start'),('check.sh','check'),('reset.sh','reset')):
                 shutil.copyfile(ROOT/'drills/linux/L02'/filename,dest/filename)
-                result=subprocess.run(['/bin/bash',str(dest/filename),'--actor','agent'],capture_output=True,text=True,check=True)
-                self.assertEqual(json.loads(result.stdout),[action,'L02','--actor','agent'])
+                result=subprocess.run(['/bin/bash',str(dest/filename)],capture_output=True,text=True,check=True)
+                self.assertEqual(json.loads(result.stdout),[action,'L02'])
 
 if __name__=='__main__':unittest.main()

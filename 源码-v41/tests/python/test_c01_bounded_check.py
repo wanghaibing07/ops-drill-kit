@@ -8,13 +8,13 @@ cli=importlib.util.module_from_spec(spec);spec.loader.exec_module(cli)
 RID='a'*24; DIGEST='b'*64
 
 def args(**changes):
-    values={'actor':'agent','expect_run_id':RID,'evidence_dir':'/var/backups/opsdrill/C01/window-metrics-'+'c'*16,'expected_sha256':DIGEST}
+    values={'expect_run_id':RID,'evidence_dir':'/var/backups/opsdrill/C01/window-metrics-'+'c'*16,'expected_sha256':DIGEST}
     values.update(changes);return types.SimpleNamespace(**values)
 
 class BoundedCheckTests(unittest.TestCase):
     def setUp(self):
-        self.status={'status':'CLEANUP_RECORDED','run_id':RID,'actor':'agent','same_boot':True}
-        self.result={'status':'BOUNDED_OBSERVATION_PASS','run_id':RID,'actor':'agent','result_sha256':DIGEST}
+        self.status={'status':'CLEANUP_RECORDED','run_id':RID,'same_boot':True}
+        self.result={'status':'BOUNDED_OBSERVATION_PASS','run_id':RID,'result_sha256':DIGEST}
         self.read=mock.patch.object(cli,'read_state',return_value=None);self.read.start();self.addCleanup(self.read.stop)
         self.backend=mock.patch.object(cli,'c01_call',return_value=types.SimpleNamespace(returncode=0,stdout=json.dumps(self.status)));self.backend.start();self.addCleanup(self.backend.stop)
         self.run=mock.patch.object(cli.subprocess,'run',return_value=types.SimpleNamespace(returncode=0,stdout=json.dumps(self.result)));self.run.start();self.addCleanup(self.run.stop)
@@ -23,7 +23,7 @@ class BoundedCheckTests(unittest.TestCase):
     def test_valid_bounded_result(self):
         self.assertEqual(self.invoke(args()),0)
     def test_incomplete_or_non_agent_input_rejected(self):
-        for kwargs in ({'expected_sha256':None},{'actor':'user'},{'expect_run_id':'wrong'}):
+        for kwargs in ({'expected_sha256':None},{'expect_run_id':None},{'expect_run_id':'wrong'}):
             with self.subTest(kwargs=kwargs),self.assertRaises(cli.Refused):self.invoke(args(**kwargs))
         cli.subprocess.run.assert_not_called()
     def test_active_or_mismatched_cleanup_rejected(self):

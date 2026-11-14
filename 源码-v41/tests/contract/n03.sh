@@ -7,7 +7,7 @@ CONTROLLER="$ROOT/drills/network/N03/n03_502.py"
 SOLUTION="$ROOT/tests/solutions/N03/solution.sh"
 run_id=''
 if [[ ${1:-} == --help ]]; then
-  printf 'Usage: sudo %s\nRun the guarded N03 502 and 504 CLI contracts as actor=agent.\n' "$0"
+  printf 'Usage: sudo %s\nRun the guarded N03 502 and 504 CLI contracts.\n' "$0"
   exit 0
 fi
 if (( $# != 0 || EUID != 0 )); then
@@ -18,7 +18,7 @@ cleanup() {
   local rc=$?
   trap - EXIT
   if [[ -n $run_id ]]; then
-    if ! "$CLI" reset N03 --actor agent --expect-run-id "$run_id"; then
+    if ! "$CLI" reset N03 --expect-run-id "$run_id"; then
       printf 'N03 contract: owned cleanup failed; preserve and inspect the run\n' >&2
       (( rc != 0 )) || rc=1
     fi
@@ -37,10 +37,10 @@ expect_rc() {
 }
 /usr/bin/python3 "$CONTROLLER" inspect-clean
 "$CLI" status | /usr/bin/grep -qx 'N03 NO_CLI_STATE'
-expect_rc 2 "$CLI" check N03 --actor agent
+expect_rc 2 "$CLI" check N03
 for variant in 502 504; do
   printf 'N03 contract: %s\n' "$variant"
-  receipt="$("$CLI" start N03 --variant "$variant" --actor agent)"
+  receipt="$("$CLI" start N03 --variant "$variant")"
   run_id="$(printf '%s' "$receipt" | /usr/bin/python3 -c '
 import json, re, sys
 v = sys.argv[1]
@@ -54,14 +54,14 @@ print(rid)
 ' "$variant")"
   wrong_id=000000000000000000000000
   [[ $run_id != "$wrong_id" ]] || wrong_id=ffffffffffffffffffffffff
-  expect_rc 2 "$CLI" reset N03 --actor agent --expect-run-id "$wrong_id"
-  expect_rc 1 "$CLI" check N03 --actor agent --expect-run-id "$run_id"
+  expect_rc 2 "$CLI" reset N03 --expect-run-id "$wrong_id"
+  expect_rc 1 "$CLI" check N03 --expect-run-id "$run_id"
   bash "$SOLUTION" "$run_id"
-  expect_rc 0 "$CLI" check N03 --actor agent --expect-run-id "$run_id"
-  expect_rc 0 "$CLI" reset N03 --actor agent --expect-run-id "$run_id"
-  expect_rc 0 "$CLI" reset N03 --actor agent --expect-run-id "$run_id"
+  expect_rc 0 "$CLI" check N03 --expect-run-id "$run_id"
+  expect_rc 0 "$CLI" reset N03 --expect-run-id "$run_id"
+  expect_rc 0 "$CLI" reset N03 --expect-run-id "$run_id"
   run_id=''
-  expect_rc 2 "$CLI" check N03 --actor agent
+  expect_rc 2 "$CLI" check N03
   /usr/bin/python3 "$CONTROLLER" inspect-clean
 done
-printf 'N03 contract: PASS (actor=agent)\n'
+printf 'N03 contract: PASS\n'

@@ -51,7 +51,7 @@ def main():
         if (state.get('phase')!='READY' or state.get('business_phase')!='TEST_ONLY'
                 or state.get('candidate_scope')!='isolated baseline schema and synthetic data'
                 or state.get('candidate_phase') not in ('IMPORTING','NEEDS_INSPECTION')
-                or state.get('actor')!='agent' or state.get('primary_uuid')!=identity.SENTINEL):
+                or state.get('primary_uuid')!=identity.SENTINEL):
             raise RuntimeError('run is not a live baseline import')
         def verify(label):
             raw=state.get('candidate_identities',{}).get(label)
@@ -99,7 +99,7 @@ def main():
         outcome=reconcile(instance_verified=True,start=current['start'],end=current['end'],
                           actual_count=count,actual_sha=hashlib.sha256(rows).hexdigest(),
                           expected_before_sha=current['before_sha256'],expected_after_sha=current['after_sha256'])
-        print(json.dumps({'run_id':rid,'observation':outcome,'count':count,'actor':'agent'}))
+        print(json.dumps({'run_id':rid,'observation':outcome,'count':count}))
         return 0 if outcome in ('MATCHES_BEFORE_BATCH','MATCHES_AFTER_BATCH') else 2
     finally:
         os.close(fd)

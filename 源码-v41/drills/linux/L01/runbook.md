@@ -6,12 +6,12 @@
 
 ```bash
 sudo bin/opsdrill status
-sudo bin/opsdrill start L01 --variant inode --actor user
-# 或：sudo bin/opsdrill start L01 --variant deleted-open --actor user
-sudo bin/opsdrill check L01 --actor user --expect-run-id RUN_ID
+sudo bin/opsdrill start L01 --variant inode
+# 或：sudo bin/opsdrill start L01 --variant deleted-open
+sudo bin/opsdrill check L01 --expect-run-id RUN_ID
 ```
 
-只有用户亲自操作时使用 `actor=user`；自动契约测试使用 `actor=agent`。有效故障的 check 返回 1，状态或环境错误返回 2。无活动演练时 check 不表示通过。
+有效故障的 check 返回 1，状态或环境错误返回 2。无活动演练时 check 不表示通过。
 
 ## 排查
 
@@ -37,8 +37,8 @@ inode 变体只清理确认属于本轮的空实验文件，恢复至少 10% 空
 sudo bash tests/solutions/L01/solution.sh inode RUN_ID
 # deleted-open 变体：
 sudo bash tests/solutions/L01/solution.sh deleted-open RUN_ID UNIT
-sudo bin/opsdrill check L01 --actor user --expect-run-id RUN_ID
-sudo bin/opsdrill reset L01 --actor user --expect-run-id RUN_ID
+sudo bin/opsdrill check L01 --expect-run-id RUN_ID
+sudo bin/opsdrill reset L01 --expect-run-id RUN_ID
 ```
 
 相同 ID 可重复 reset；若活动轮次已经改变则拒绝。身份不一致或未知资源存在时保留现场，不手动卸载未知设备或杀死未知进程。
@@ -47,7 +47,7 @@ sudo bin/opsdrill reset L01 --actor user --expect-run-id RUN_ID
 
 判题会校验实验机 `/etc/logrotate.d/nginx` 的权限、活动 Nginx 日志路径、保留策略和重开日志配置，并运行 logrotate 调试模式；它不实际轮转日志，也不证明定时器曾运行或 Nginx 已加载最新配置。检查通过后再确认无本轮挂载、镜像、loop 或 holder 残留。
 
-`sudo bash tests/contract/l01.sh` 在两种变体上验证故障、受控恢复、检查和幂等复位，事件标记 `actor=agent`；可用于项目复盘和展示。创建或清理中发生不可识别的中断时，控制器会拒绝自动清理，需先检查本轮现场。
+`sudo bash tests/contract/l01.sh` 在两种变体上验证故障、受控恢复、检查和幂等复位；可用于项目复盘和展示。创建或清理中发生不可识别的中断时，控制器会拒绝自动清理，需先检查本轮现场。
 
 ## 官方参考
 

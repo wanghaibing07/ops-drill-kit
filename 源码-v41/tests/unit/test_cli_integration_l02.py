@@ -22,7 +22,7 @@ RID='a'*24
 
 class IntegrationTests(unittest.TestCase):
     def args(self,command):
-        return argparse.Namespace(command=command,drill='L02',actor='agent',variant=None,expect_run_id=None)
+        return argparse.Namespace(command=command,drill='L02',variant=None,expect_run_id=None)
 
     def test_start_validates_timer_receipt_and_owner(self):
         receipt={'receipt':'L02_CONFIG_OWNER_V1','run_id':RID,'timer':'opsdrill-l02-recover-'+RID+'.timer'}

@@ -51,7 +51,7 @@ def verify_reset_identity(recorded, observed, mysql_uid, mysql_executable, *, sy
     socket and isolated MySQL. This does not make either source trustworthy.
     Caller must also perform controller's full active-unit, process, datadir,
     socket-only and MySQL identity checks under the run lock immediately before
-    action. A privileged actor can still replace a unit between check and stop.
+    action. A privileged process can still replace a unit between check and stop.
     """
     import m04_controller as ctl
     if not isinstance(recorded, InstanceIdentity) or not isinstance(observed, InstanceIdentity):

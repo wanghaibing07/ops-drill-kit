@@ -100,10 +100,10 @@ fcntl.flock=inherited_lock
 sys.path.insert(0,base);sys.argv=[target]+sys.argv[5:];runpy.run_path(target,run_name='__main__')"""
     return ['/usr/bin/python3','-I','-B','-c',code,str(lockfd),str(c.STATE/'deploy.lock'),str(HERE),str(HERE/name),*args]
 
-def phases(actor,lockfd=None):
+def phases(lockfd=None):
     return [
       ('seed',['/usr/sbin/runuser','-u','devops','--','/usr/bin/python3','-B',str(c.PROJECT/'baseline/seed_orders.py'),'--apply'],300),
-      ('mysql',tool('mysql_import.py','--apply','--actor',actor,lockfd=lockfd),1800),
+      ('mysql',tool('mysql_import.py','--apply',lockfd=lockfd),1800),
       ('accounts',tool('accounts.py','--apply',lockfd=lockfd),120),
       ('stack_files',tool('stack_files.py','--apply',lockfd=lockfd),60),
       ('systemd_reload_before_credentials',['/usr/bin/systemctl','daemon-reload'],30),
@@ -117,16 +117,15 @@ def phases(actor,lockfd=None):
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--apply',action='store_true')
-    parser.add_argument('--actor',choices=('agent','user'));args=parser.parse_args(argv)
+    args=parser.parse_args(argv)
     try:
         check_files()
         state=read_state()
         if state is not None and (state.get('status')!='DONE' or state.get('phase')!='verify'):
             raise c.Refusal('部署记录未完成，拒绝自动重试')
         print('前置检查通过；本入口不安装系统包、初始化 MySQL 管理员或建立 Python 环境。')
-        print('执行顺序:',', '.join(x[0] for x in phases(args.actor or 'agent')))
+        print('执行顺序:',', '.join(x[0] for x in phases()))
         if not args.apply:return 0
-        if not args.actor:raise c.Refusal('--apply 必须明确 actor')
         c.chain(c.STATE.parent)
         try:c.STATE.mkdir(mode=0o700)
         except FileExistsError:pass
@@ -150,8 +149,8 @@ def main(argv=None):
                 # A running nginx lacking this config requires a reload and is not adopted.
                 active=subprocess.run(['/usr/bin/systemctl','is-active','--quiet','nginx.service'],env=ENV,timeout=10).returncode==0
                 if active and not Path('/etc/nginx/conf.d/orderguard.conf').exists():raise c.Refusal('运行中的 Nginx 缺少配置；不接管')
-                state={'version':1,'actor':args.actor,'status':'RUNNING','phase':'preparing'};save_state(state,create=True)
-                for name,cmd,timeout in phases(args.actor,deploy_fd):
+                state={'version':1,'status':'RUNNING','phase':'preparing'};save_state(state,create=True)
+                for name,cmd,timeout in phases(deploy_fd):
                     state['phase']=name;save_state(state)
                     print('执行阶段:',name,flush=True)
                     call(cmd,timeout,pass_fds=() if name=='seed' else (deploy_fd,))

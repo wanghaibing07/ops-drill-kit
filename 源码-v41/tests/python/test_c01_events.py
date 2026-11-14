@@ -17,7 +17,7 @@ RID='a'*24
 ATTEMPT='C01-20261113-123456'
 
 def args(command,rid=None,kind=None):
-    return types.SimpleNamespace(drill='C01',command=command,actor='agent',expect_run_id=rid,variant=None,n04_version=None,kind=kind)
+    return types.SimpleNamespace(drill='C01',command=command,expect_run_id=rid,variant=None,n04_version=None,kind=kind)
 
 class IntegrationTests(unittest.TestCase):
     def setUp(self):
@@ -38,8 +38,8 @@ class IntegrationTests(unittest.TestCase):
         if action=='inject':return 0,receipt
         if action=='check': return (1,{}) if self.fault else (0,{})
         return 0,{}
-    def call(self,action,actor,expected=None,capture=False):
-        rc,obj=self.controller.execute(action,actor,expected)
+    def call(self,action,expected=None,capture=False):
+        rc,obj=self.controller.execute(action,expected)
         return types.SimpleNamespace(returncode=rc,stdout=json.dumps(obj),stderr='')
     def invoke(self,command,rid=None,kind=None):
         with contextlib.redirect_stdout(io.StringIO()):return cli.action(args(command,rid,kind))
@@ -58,7 +58,7 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(self.invoke('reset',RID),0)
         self.assertIsNone(self.cli_state);self.assertTrue(self.store.done)
         self.assertEqual([(x[2],x[3]) for x in self.logs], [('inject','STARTING'),('inject','PASS'),('hint','PASS'),('diagnosis','PASS'),('check','PENDING'),('resolve','MITIGATED'),('check','PARTIAL'),('reset','PASS')])
-        lines=[json.dumps({'drill_id':d,'attempt_id':a,'run_id':RID,'event':k,'result':r,'actor':actor}) for d,a,k,r,actor in self.logs]
+        lines=[json.dumps({'drill_id':d,'attempt_id':a,'run_id':RID,'event':k,'result':r}) for d,a,k,r,*_ in self.logs]
         result=report.summarize(lines); self.assertEqual(result['invalid_lines'],0)
         self.assertEqual(result['attempts'][0]['status'],'PARTIAL')
         self.assertIsNone(result['attempts'][0]['mttr_proxy_seconds'])
@@ -79,14 +79,14 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual((self.cli_state['run_id'],self.cli_state['phase']),(RID,'STARTING'))
     def test_legacy_run_is_not_adopted_or_given_events(self):
         receipt={'kind':'C01_APP_DOWN_V1','run_id':RID,'owner_id':'b'*32,'timer':'opsdrill-n03-recover-'+RID+'.timer'}
-        self.store.record={'version':1,'receipt':receipt,'actor':'user','boot_id':BOOT}
+        self.store.record={'version':1,'receipt':receipt,'boot_id':BOOT}
         self.fault=False
         self.assertEqual(self.invoke('check',RID),2)
         self.assertEqual(self.invoke('reset',RID),0)
         self.assertEqual(self.logs,[]);self.assertIsNone(self.cli_state)
     def test_existing_unfinished_legacy_receipt_refuses_start_without_events(self):
         receipt={'kind':'C01_APP_DOWN_V1','run_id':'c'*24,'owner_id':'b'*32,'timer':'opsdrill-n03-recover-'+'c'*24+'.timer'}
-        self.store.record={'version':1,'receipt':receipt,'actor':'user','boot_id':BOOT}
+        self.store.record={'version':1,'receipt':receipt,'boot_id':BOOT}
         with self.assertRaisesRegex(cli.Refused,'existing or unverified'):self.invoke('start')
         self.assertIsNone(self.cli_state);self.assertEqual(self.logs,[])
         self.backend.call.assert_not_called()
@@ -99,9 +99,9 @@ class IntegrationTests(unittest.TestCase):
 
     def test_timeout_after_receipt_retains_run_and_does_not_claim_fault(self):
         import subprocess
-        def timed_out(action,actor,expected=None,capture=False):
-            if action=='status':return self.call(action,actor,expected,capture)
-            self.controller.execute(action,actor,expected)
+        def timed_out(action,expected=None,capture=False):
+            if action=='status':return self.call(action,expected,capture)
+            self.controller.execute(action,expected)
             raise subprocess.TimeoutExpired('simulated',1)
         cli.c01_call.side_effect=timed_out
         with self.assertRaisesRegex(cli.Refused,'retain run ID'):self.invoke('start')
@@ -126,7 +126,7 @@ class IntegrationTests(unittest.TestCase):
 
 class ReportTests(unittest.TestCase):
     def test_c01_pass_check_never_counts_as_full(self):
-        base={'drill_id':'C01','attempt_id':ATTEMPT,'run_id':RID,'actor':'user','boot_id':'boot','monotonic_ns':1}
+        base={'drill_id':'C01','attempt_id':ATTEMPT,'run_id':RID,'boot_id':'boot','monotonic_ns':1}
         for checks,expected in [([{'event':'check','result':'PASS'}],'INCOMPLETE'),([{'event':'check','result':'PARTIAL'},{'event':'check','result':'PASS'}],'PARTIAL'),([{'event':'check','result':'PARTIAL'},{'event':'check','result':'PENDING'}],'PENDING')]:
             events=[dict(base,event='inject',result='PASS')]+[dict(base,**x) for x in checks]
             row=report.summarize(map(json.dumps,events))['attempts'][0]

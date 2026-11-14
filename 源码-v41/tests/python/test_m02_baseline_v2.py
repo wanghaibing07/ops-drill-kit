@@ -8,7 +8,7 @@ RID='a'*24;ATTEMPT='M02-20261113-123456'
 def constant(path,name):
     tree=ast.parse(path.read_bytes());node=next(n for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(x,ast.Name) and x.id==name for x in n.targets));return ast.literal_eval(node.value)
 class M02VersionTests(unittest.TestCase):
-    def args(self,command,version=None):return types.SimpleNamespace(command=command,actor='agent',variant=None,m02_version=version)
+    def args(self,command,version=None):return types.SimpleNamespace(command=command,variant=None,m02_version=version)
     def test_exact_baselines_are_distinct(self):
         self.assertEqual(constant(ROOT/'drills/mysql/M02/m02_deadlock.py','BASELINE'),{10086:3,10087:3})
         self.assertEqual(constant(ROOT/'drills/mysql/M02/baseline-v2/m02_deadlock.py','BASELINE'),{10086:2,10087:3})

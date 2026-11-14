@@ -15,7 +15,7 @@ RID='a'*24
 
 
 class CliM01Tests(unittest.TestCase):
-    def args(self,action): return argparse.Namespace(command=action,drill='M01',actor='agent',variant=None,expect_run_id=None)
+    def args(self,action): return argparse.Namespace(command=action,drill='M01',variant=None,expect_run_id=None)
 
     def test_start_validates_owner_and_records_timer(self):
         receipt={'receipt':'M01_INDEX_OWNER_V1','run_id':RID,'timer':'opsdrill-m01-recover-'+RID+'.timer'}

@@ -249,12 +249,11 @@ def configure_mysql_repo():
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--vm-uuid',required=True)
-    parser.add_argument('--apply',action='store_true');parser.add_argument('--actor',choices=('agent','user'));args=parser.parse_args(argv)
+    parser.add_argument('--apply',action='store_true');args=parser.parse_args(argv)
     try:
         preflight(args.vm_uuid.lower())
         print('干净 VM 前置检查通过；此候选依赖已安全传入的项目及工具。')
         if not args.apply:return 0
-        if not args.actor:raise Refusal('--apply 必须明确 actor')
         trusted_dir(STATE.parent)
         try:STATE.mkdir(mode=0o700)
         except FileExistsError:pass
@@ -265,7 +264,7 @@ def main(argv=None):
             st=os.fstat(fd)
             if not stat.S_ISREG(st.st_mode) or st.st_uid!=0 or st.st_nlink!=1 or stat.S_IMODE(st.st_mode)!=0o600:raise Refusal('锁不安全')
             fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB);preflight(args.vm_uuid.lower())
-            state={'version':1,'actor':args.actor,'status':'RUNNING','phase':'marker','vm_uuid':args.vm_uuid.lower()};save(state,create=True)
+            state={'version':1,'status':'RUNNING','phase':'marker','vm_uuid':args.vm_uuid.lower()};save(state,create=True)
             create_marker()
             state['phase']='lab_dirs';save(state);ensure_lab_dirs()
             state['phase']='evidence_dirs';save(state);ensure_contract_evidence_dirs()
@@ -279,12 +278,12 @@ def main(argv=None):
               ('venv',['/usr/sbin/runuser','-u','devops','--','/usr/bin/python3','-m','venv',str(PROJECT/'.venv')],120),
               ('python_deps',['/usr/sbin/runuser','-u','devops','--',str(PROJECT/'.venv/bin/python'),'-m','pip','install','-r',str(PROJECT/'requirements.txt')],1200),
               ('selinux_network',['/usr/sbin/setsebool','-P','httpd_can_network_connect','1'],120),
-              ('mysql_admin',stage_tool('mysql_admin_init.py','--apply','--actor',args.actor),300),
+              ('mysql_admin',stage_tool('mysql_admin_init.py','--apply'),300),
               ('m04_v4',None,0),
-              ('drill_runtimes',stage_tool('install_drill_runtimes.py','--source-root',str(HERE.parent),'--apply','--actor',args.actor),1800),
+              ('drill_runtimes',stage_tool('install_drill_runtimes.py','--source-root',str(HERE.parent),'--apply'),1800),
               ('m02_v2_install',['/usr/bin/python3','-I','-B',str(M02_V2_SOURCE/'install_m02_v2.py'),str(M02_V2_SOURCE)],300),
               ('n03_slow_dropin',None,0),
-              ('stack',stage_tool('orchestrate.py','--apply','--actor',args.actor),2400),
+              ('stack',stage_tool('orchestrate.py','--apply'),2400),
               ('m02_writer_v2',['/usr/bin/python3','-I','-B',str(M02_V2_SOURCE/'bootstrap_m02_writer_v2.py'),'create'],300)]
             for name,cmd,timeout in steps:
                 state['phase']=name;save(state);print('执行阶段:',name,flush=True)

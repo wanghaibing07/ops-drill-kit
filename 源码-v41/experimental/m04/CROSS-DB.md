@@ -6,4 +6,4 @@
 
 该实验使用 GTID OFF，恢复和回放使用隔离目标上的 root。它不是跨实例分布式事务、GTID 恢复、生产备份或完整业务 M04 CLI 契约。较早的 `774dc866d185cd0c` 首次审计拒绝后通过独立账本受控续接；旧失败状态保留，其 dump 未持久化，不能将两次实验混作同一次无干预通过。
 
-`cross_db_audit.py` 是针对两张固定合成表和一个 Binlog 文件的窄范围审计器，不支持任意 Schema 或数据类型。它检查事务边界、CRC、表映射和行镜像；`tests/python/test_cross_db_audit.py` 检查正确事务和错误提交边界。`cross_db_pitr_probe.py` 只用于授权实验 VM，需要先在 root 控制的目录中独立核对代码及其 14 项 v3 运行时清单与审计器摘要，并按脚本中固定的 root 保护位置暂存审计器。显式传入 `--apply --actor agent` 才会创建新的隔离实例；失败保留现场，须按记录的身份检查，不要盲目重试或清理。
+`cross_db_audit.py` 是针对两张固定合成表和一个 Binlog 文件的窄范围审计器，不支持任意 Schema 或数据类型。它检查事务边界、CRC、表映射和行镜像；`tests/python/test_cross_db_audit.py` 检查正确事务和错误提交边界。`cross_db_pitr_probe.py` 只用于授权实验 VM，需要先在 root 控制的目录中独立核对代码及其 14 项 v3 运行时清单与审计器摘要，并按脚本中固定的 root 保护位置暂存审计器。显式传入 `--apply` 才会创建新的隔离实例；失败保留现场，须按记录的身份检查，不要盲目重试或清理。

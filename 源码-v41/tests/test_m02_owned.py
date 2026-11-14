@@ -35,7 +35,7 @@ OTHER = 'b' * 24
 ATTEMPT = 'M02-20261113-123456'
 
 def args(command):
-    return SimpleNamespace(command=command, variant=None, actor='agent')
+    return SimpleNamespace(command=command, variant=None)
 
 class CliOwnershipTests(unittest.TestCase):
     def setUp(self):
@@ -275,7 +275,7 @@ class CliLifecycleIntegrationTests(unittest.TestCase):
                     'deadlock':{'error_code':1213},'mysql':{'global_log_bin_after':1}})]
         for patch in common: patch.start(); self.addCleanup(patch.stop)
         def run(command,rid=None):
-            return cli.action(SimpleNamespace(command=command,drill='M02',actor='agent',variant=None,
+            return cli.action(SimpleNamespace(command=command,drill='M02',variant=None,
                                                expect_run_id=rid,n04_version=None))
         with mock.patch('sys.stdout',new_callable=io.StringIO), mock.patch('sys.stderr',new_callable=io.StringIO):
             self.assertEqual(run('start'),0)

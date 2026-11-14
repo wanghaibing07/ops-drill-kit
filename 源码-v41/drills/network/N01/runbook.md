@@ -1,6 +1,6 @@
 # N01 DNS 解析故障
 
-在隔离命名空间中使用错误 DNS 记录，直接 IP 仍可访问。通过 `opsdrill start N01 --actor agent` 获取 run ID；`check`、`resolve`、`reset` 使用 `--expect-run-id`。修复后核验 DNS、getent 和域名 HTTP。项目经历可结合真实记录说明；实际由自动执行的操作应如实标记，不编造手工操作和指标。
+在隔离命名空间中使用错误 DNS 记录，直接 IP 仍可访问。通过 `opsdrill start N01` 获取 run ID；`check`、`resolve`、`reset` 使用 `--expect-run-id`。修复后核验 DNS、getent 和域名 HTTP。项目经历可结合真实记录说明；实际由自动执行的操作应如实标记，不编造手工操作和指标。
 
 新安装时，先将安装器和两份源码复制到 root 控制且祖先目录均不允许普通用户写入的暂存目录，独立核对 SHA256：安装器 `cc29581c0782712179064416e63d195f22543fec60be6af2ade8b25a30e5b495`、`n01.py` `954c3bc7f4e4c59156d7ae612ae107de76ee21204cf8333ce989a721cd5cc8a8`、`n01_watchdog.py` `183545f5421be32e41281be0ca340fe248436095902bf2b6969fce287c4976be`。确认后从该目录执行 `sudo python3 -I -B <受保护目录>/install_n01.py <受保护目录>/n01.py <受保护目录>/n01_watchdog.py`；不要直接以 root 执行普通用户可写的项目文件。安装器的自检不能证明它运行前未被修改。安装器要求 VMware 实验机标记、root 控制的目标目录，已安装相同版本时可重复运行；遇到旧版、未知文件或不安全路径时拒绝覆盖。旧版迁移需单独审查，不把安装当作升级。
 

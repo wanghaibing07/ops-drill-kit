@@ -22,7 +22,7 @@ def run(*args):
     return cp,parsed
 assert not state_path.exists()
 try:
-    cp,output=run('start','M04','--actor','agent')
+    cp,output=run('start','M04')
     if cp.returncode or not state_path.exists():raise RuntimeError('start unconfirmed; retain state')
     state=json.loads(state_path.read_text())
     assert state.get('drill_id')=='M04' and state.get('phase')=='ACTIVE' and state.get('m04_version')=='synthetic-v4'
@@ -56,12 +56,12 @@ d=m.ctl.BASE/sys.argv[1];x=m.ctl.load(d,sys.argv[1]);print(json.dumps({'phase':x
     data=json.loads(check.stdout);print('durable state',data,flush=True)
     assert data=={'phase':'RESETTING','intent':'target','stopped':[]}
     reset_attempted=True
-    cp,output=run('reset','M04','--actor','agent','--expect-run-id',rid)
+    cp,output=run('reset','M04','--expect-run-id',rid)
     assert cp.returncode==0 and output[-1]['status']=='STOPPED' and not state_path.exists()
     clean=True
     print('M04',('after-stop' if options.after_stop else 'before-stop'),'interruption recovery verified:',rid,flush=True)
 finally:
     if rid and not clean and not reset_attempted:
         print('Attempting only identity-bound reset for this run:',rid,flush=True)
-        try:run('reset','M04','--actor','agent','--expect-run-id',rid)
+        try:run('reset','M04','--expect-run-id',rid)
         except Exception as exc:print('Reset unconfirmed:',type(exc).__name__,flush=True)

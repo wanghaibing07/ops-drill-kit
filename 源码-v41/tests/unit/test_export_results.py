@@ -36,9 +36,9 @@ class ExportTests(unittest.TestCase):
         def root_owned(fd):
             st=real_fstat(fd)
             return types.SimpleNamespace(st_mode=st.st_mode,st_uid=0,st_nlink=st.st_nlink)
-        with mock.patch.object(m,'EVENTS',events),mock.patch.object(m.os,'fstat',side_effect=root_owned),mock.patch.object(m.subprocess,'run',return_value=types.SimpleNamespace(stdout='# 演练结果\n\nactor agent\n')):
+        with mock.patch.object(m,'EVENTS',events),mock.patch.object(m.os,'fstat',side_effect=root_owned),mock.patch.object(m.subprocess,'run',return_value=types.SimpleNamespace(stdout='# 演练结果\n\nactor auto\n')):
             text=m.render()
-        self.assertTrue(text.startswith(m.MARKER));self.assertIn('actor agent',text)
+        self.assertTrue(text.startswith(m.MARKER));self.assertIn('MTTD proxy',text)
         events.chmod(0o644)
         with mock.patch.object(m,'EVENTS',events),mock.patch.object(m.os,'fstat',side_effect=root_owned),self.assertRaises(RuntimeError):m.render()
 

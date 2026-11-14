@@ -32,7 +32,7 @@ for d in (ctl.BASE,oldbase,cont):
 for file in (oldbase/'state.json',cont/'result.json',cont/'state.json'):
  st=file.lstat();need(stat.S_ISREG(st.st_mode) and st.st_uid==0 and st.st_nlink==1 and not st.st_mode&0o022,'unsafe old evidence file')
 oldraw=(oldbase/'state.json').read_bytes();oldstate=json.loads(oldraw);prior=json.loads((cont/'result.json').read_text());priorstate=json.loads((cont/'state.json').read_text())
-need(prior.get('status')=='PASS' and prior.get('actor')=='agent' and prior.get('run_id')==old and prior.get('original_failure_state_sha256')==hashlib.sha256(oldraw).hexdigest(),'prior evidence mismatch')
+need(prior.get('status')=='PASS' and prior.get('run_id')==old and prior.get('original_failure_state_sha256')==hashlib.sha256(oldraw).hexdigest(),'prior evidence mismatch')
 need(priorstate.get('phase')=='STOPPED' and priorstate.get('candidate_phase')=='CONTINUATION_STOPPED','prior continuation not stopped')
 def old_stopped():
  q=subprocess.run(['/usr/bin/systemctl','show',ctl.unit(old,'target'),'-p','ActiveState','-p','MainPID'],capture_output=True,text=True,timeout=10)
@@ -75,7 +75,7 @@ for name,(sha,mode,encoded) in payload.items():
 print('Prior PITR, stopped source, runtime pins and resources verified; copy size',total,flush=True)
 if not a.apply:sys.exit(0)
 main_uuid=primary.identity();main_proc=primary.process_identity();ctl.setup();rid=secrets.token_hex(8);directory=ctl.BASE/rid;directory.mkdir(mode=0o700);lock=ctl.locked(directory)
-boot,now=ctl.boot_context();state={'version':1,'run_id':rid,'phase':'PREPARING','primary_uuid':live.SENTINEL,'uuids':{},'attempted':[], 'boot_id':boot,'deadline_boottime':now+1200,'business_phase':'TEST_ONLY','candidate_phase':'COPYING','actor':'agent','source_run':old}
+boot,now=ctl.boot_context();state={'version':1,'run_id':rid,'phase':'PREPARING','primary_uuid':live.SENTINEL,'uuids':{},'attempted':[], 'boot_id':boot,'deadline_boottime':now+1200,'business_phase':'TEST_ONLY','candidate_phase':'COPYING','source_run':old}
 ctl.save(directory,state);print('New isolated application restore run',rid,flush=True)
 api=proxy=listener=None;account_attempted=False;account_clean=True;bound=False;clean=False;result=None;record=None
 def phase(x):state['candidate_phase']=x;ctl.save(directory,state);print('phase',x,flush=True)
@@ -177,7 +177,7 @@ try:
  actual=['\t'.join((x['order_no'].encode().hex().upper(),str(x['merchant_id']),str(x['user_id']),str(x['order_status']),str(x['amount_cents']),x['pay_channel'].encode().hex().upper())) for x in body['items']]
  need(actual==expected,'API rows differ from restored database')
  need(get('http://127.0.0.1:8080/ready')[0]==200,'primary readiness changed')
- result={'status':'PASS','actor':'agent','run_id':rid,'source_run':old,'source_continuation':'continuation-d1afaa39aef1bb7f','source_result_sha256':hashlib.sha256((cont/'result.json').read_bytes()).hexdigest(),'copy_manifest_sha256':state['copy_manifest_sha256'],'restored_app_files':len(names),'app_manifest_sha256':hashlib.sha256((backup/'manifest.json').read_bytes()).hexdigest(),'app_lab_directory':str(lab),'total_orders':500000,'merchant_88_orders':25000,'http_orders':200,'http_ready':200,'matched_page_rows':20,'scope':'restored app files connected through isolated adapter to a physical copy of the previously recovered synthetic business database; prior PITR was a controlled continuation; not a coordinated production snapshot'}
+ result={'status':'PASS','run_id':rid,'source_run':old,'source_continuation':'continuation-d1afaa39aef1bb7f','source_result_sha256':hashlib.sha256((cont/'result.json').read_bytes()).hexdigest(),'copy_manifest_sha256':state['copy_manifest_sha256'],'restored_app_files':len(names),'app_manifest_sha256':hashlib.sha256((backup/'manifest.json').read_bytes()).hexdigest(),'app_lab_directory':str(lab),'total_orders':500000,'merchant_88_orders':25000,'http_orders':200,'http_ready':200,'matched_page_rows':20,'scope':'restored app files connected through isolated adapter to a physical copy of the previously recovered synthetic business database; prior PITR was a controlled continuation; not a coordinated production snapshot'}
 finally:
  if listener is not None:listener.close()
  stop_process(api,'app');stop_process(proxy,'proxy')

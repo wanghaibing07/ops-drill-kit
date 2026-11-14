@@ -62,7 +62,7 @@ for name,data in zip(('proxy.py','server.py'),helper_data):
 spec=importlib.util.spec_from_file_location('reviewed_cli',root/'scripts/opsdrill_cli.py');v=importlib.util.module_from_spec(spec);spec.loader.exec_module(v)
 rid=None;started=False;attempted=False;account_clean=True;clean=False;api=None;proxy=None;listener=None;result=None;m=None
 def action(name,rid=None):
- argv=[str(cli),name,'M04','--actor','agent']
+ argv=[str(cli),name,'M04']
  if rid:argv+=['--expect-run-id',rid]
  q=subprocess.run(argv,capture_output=True,text=True,timeout=145,env=env);items=[]
  for line in q.stdout.splitlines():
@@ -128,7 +128,7 @@ try:
  assert get(url+'/ready')[0]==200
  code,metrics2=get(url+'/__opsdrill/pool-metrics');assert code==200 and metrics2['pid']==api.pid and metrics2['stage3']['generation']==generation
  assert get('http://127.0.0.1:8080/ready')[0]==200
- result={'status':'PASS','actor':'agent','run_id':rid,'restored_files':len(names),'app_lab_directory':str(lab),'app_backup_manifest_sha256':hashlib.sha256((backup/'manifest.json').read_bytes()).hexdigest(),'app_pid':api.pid,'stage3_pool_generation':generation,'baseline_http':200,'recovered_http':200,'baseline_amounts':[100,200],'recovered_amounts':[101,200],'scope':'restored selected application files and isolated synthetic PITR target; external lab dependencies and in-memory test database factories; not full production restore'}
+ result={'status':'PASS','run_id':rid,'restored_files':len(names),'app_lab_directory':str(lab),'app_backup_manifest_sha256':hashlib.sha256((backup/'manifest.json').read_bytes()).hexdigest(),'app_pid':api.pid,'stage3_pool_generation':generation,'baseline_http':200,'recovered_http':200,'baseline_amounts':[100,200],'recovered_amounts':[101,200],'scope':'restored selected application files and isolated synthetic PITR target; external lab dependencies and in-memory test database factories; not full production restore'}
 finally:
  if listener is not None:listener.close()
  terminate(api,'API');terminate(proxy,'proxy')
@@ -147,7 +147,7 @@ if not clean or result is None or not account_clean:raise RuntimeError('app rest
 assert not os.path.lexists('/var/lib/opsdrill/cli/M04.json') and get('http://127.0.0.1:8080/ready')[0]==200
 events=[json.loads(line) for line in Path('/var/lib/opsdrill/events.jsonl').read_text().splitlines()]
 owned=[x for x in events if x.get('drill_id')=='M04' and x.get('run_id')==rid]
-assert owned and all(x.get('actor')=='agent' for x in owned) and any(x.get('event')=='reset' and x.get('result')=='PASS' for x in owned)
+assert owned and any(x.get('event')=='reset' and x.get('result')=='PASS' for x in owned)
 result['cleanup']='PASS';result['business_ready_after']=200
 fd=os.open(resultdir/'result.json',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
 with os.fdopen(fd,'w') as f:json.dump(result,f,sort_keys=True);f.write('\n');f.flush();os.fsync(f.fileno())

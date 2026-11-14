@@ -63,8 +63,7 @@ rid=secrets.token_hex(8);directory=ctl.BASE/rid;directory.mkdir(mode=0o700);lock
 boot,now=ctl.boot_context()
 state={'version':1,'run_id':rid,'phase':'PREPARING','primary_uuid':live_identity.SENTINEL,
        'uuids':{},'attempted':[],'boot_id':boot,'deadline_boottime':now+1200,
-       'business_phase':'TEST_ONLY','candidate_phase':'BASELINE_PREPARING','actor':'agent',
-       'candidate_scope':'isolated baseline schema and synthetic data'}
+       'business_phase':'TEST_ONLY','candidate_phase':'BASELINE_PREPARING','candidate_scope':'isolated baseline schema and synthetic data'}
 ctl.save(directory,state)
 print('BASELINE_RUN',rid,flush=True)
 

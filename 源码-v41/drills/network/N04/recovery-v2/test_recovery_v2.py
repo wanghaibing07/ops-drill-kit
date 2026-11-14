@@ -114,7 +114,7 @@ class LifecycleTests(unittest.TestCase):
 class CliTests(unittest.TestCase):
     def args(self,command,rid=None,version=None):
         return argparse.Namespace(drill='N04',command=command,expect_run_id=rid,
-                                  variant=None,actor='agent',n04_version=version)
+                                  variant=None,n04_version=version)
     def test_id_and_version_are_durable_before_start(self):
         states=[]; calls=[]
         def write(drill,state): states.append(dict(state))

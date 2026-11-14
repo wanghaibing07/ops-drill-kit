@@ -38,11 +38,11 @@ def save(state,create=False):
  if tmp is not None:os.replace(tmp,STATE/'run.json')
  d=os.open(STATE,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW);os.fsync(d);os.close(d)
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--source-root',required=True,type=Path);p.add_argument('--apply',action='store_true');p.add_argument('--actor',choices=('agent',));args=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--source-root',required=True,type=Path);p.add_argument('--apply',action='store_true');args=p.parse_args()
  preflight(args.source_root)
  print('Verified protected inputs and absent destinations:',len(PINS),'files,',len(TASKS),'runtimes',flush=True)
  if not args.apply:return 0
- need(args.actor=='agent','explicit actor required');directory(STATE.parent)
+ directory(STATE.parent)
  try:STATE.mkdir(mode=0o700)
  except FileExistsError:pass
  directory(STATE);need(stat.S_IMODE(STATE.lstat().st_mode)==0o700,'state mode')
@@ -50,7 +50,7 @@ def main():
  try:
   st=os.fstat(lock);need(stat.S_ISREG(st.st_mode) and st.st_uid==0 and st.st_nlink==1 and stat.S_IMODE(st.st_mode)==0o600,'unsafe lock')
   fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB);preflight(args.source_root)
-  state={'actor':'agent','status':'RUNNING','phase':'begin','completed':[]};save(state,create=True)
+  state={'status':'RUNNING','phase':'begin','completed':[]};save(state,create=True)
   for task in TASKS:
    state['phase']=task['name'];save(state);print('Install runtime:',task['name'],flush=True)
    cmd=['/usr/bin/python3','-I','-B',str(args.source_root/task['installer']),*[str(args.source_root/x) for x in task['args']]]

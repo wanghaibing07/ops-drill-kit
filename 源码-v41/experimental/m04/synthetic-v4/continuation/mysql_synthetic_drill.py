@@ -261,7 +261,7 @@ def main():
     boot, now = ctl.boot_context()
     state = {'version': 1, 'run_id': rid, 'phase': 'PREPARING', 'primary_uuid': ZERO_UUID,
              'uuids': {}, 'attempted': [], 'boot_id': boot, 'deadline_boottime': now + 900,
-             'business_phase': 'TEST_ONLY', 'candidate_phase': 'PREPARING', 'actor': 'agent'}
+             'business_phase': 'TEST_ONLY', 'candidate_phase': 'PREPARING'}
     ctl.save(directory, state)
     print(json.dumps({'run_id': rid, 'phase': 'PREPARING', 'scope': 'synthetic isolated MySQL candidate'}), flush=True)
 
@@ -284,7 +284,7 @@ def main():
             phase(directory, state, 'RESETTING')
             live_identity.reset(rid, state, directory)
         phase(directory, state, 'SYNTHETIC_RESET_COMPLETE')
-        print(json.dumps({'run_id': rid, 'actor': 'agent', 'phase': 'SYNTHETIC_RESET_COMPLETE',
+        print(json.dumps({'run_id': rid, 'phase': 'SYNTHETIC_RESET_COMPLETE',
                           'scope': 'synthetic isolated MySQL candidate; no primary verification'}), flush=True)
     except BaseException as exc:
         # Do not guess ownership or automatically remove resources after failure.

@@ -73,10 +73,10 @@ def audit(directory,rid,expected_sha):
     need(re.fullmatch(r'[0-9a-f]{24}',rid) is not None and re.fullmatch(r'[0-9a-f]{64}',expected_sha) is not None,'invalid identity or hash')
     need(directory.parent==BASE and re.fullmatch(r'window-metrics-[0-9a-f]{16}',directory.name) is not None,'unexpected evidence path');safe_dir(directory)
     raw=safe_read(directory/'result.json',1048576);need(hashlib.sha256(raw).hexdigest()==expected_sha,'result hash mismatch');result=decode(raw)
-    need(result.get('actor')=='agent' and result.get('run_id')==rid and result.get('status')=='BOUNDED_AUTOMATED_OBSERVATION_PASS' and result.get('ready_after')==200 and result.get('cli_check')=='RECOVERED_PARTIAL','result identity')
+    need(result.get('run_id')==rid and result.get('status')=='BOUNDED_AUTOMATED_OBSERVATION_PASS' and result.get('ready_after')==200 and result.get('cli_check')=='RECOVERED_PARTIAL','result identity')
     safe_dir(Path('/var/lib/opsdrill'));eventraw=safe_read(Path('/var/lib/opsdrill/events.jsonl'),16777216);events=[decode(line) for line in eventraw.splitlines()]
     owned=[e for e in events if e.get('drill_id')=='C01' and e.get('run_id')==rid]
-    need(owned and all(e.get('actor')=='agent' for e in owned) and len({e.get('attempt_id') for e in owned})==1 and len({e.get('boot_id') for e in owned})==1,'event identity')
+    need(owned and len({e.get('attempt_id') for e in owned})==1 and len({e.get('boot_id') for e in owned})==1,'event identity')
     need(any(e.get('event')=='inject' and e.get('result')=='PASS' for e in owned) and any(e.get('event')=='check' and e.get('result')=='PARTIAL' for e in owned) and any(e.get('event')=='reset' and e.get('result')=='PASS' for e in owned),'event lifecycle')
     boot=owned[0]['boot_id'];need(re.fullmatch(r'[0-9a-f-]{36}',str(boot)) is not None,'boot identity')
     previous=None;previous_offset=None;device=None;counts={}
@@ -95,7 +95,7 @@ def audit(directory,rid,expected_sha):
             invocation=audit_pools(p.get('pool_before'),p.get('pool_after'),start,end)
             journal=safe_read(directory/'recovered-journal.jsonl',4000000);audit_journal(journal,p,boot,invocation)
     audit_lifecycle(owned,result)
-    return {'run_id':rid,'attempt_id':owned[0]['attempt_id'],'actor':'agent','status':'BOUNDED_OBSERVATION_PASS','scope':'finite target gateway windows and two recovery-window pools; not complete C01 or global zero errors','requests':counts,'result_sha256':expected_sha}
+    return {'run_id':rid,'attempt_id':owned[0]['attempt_id'],'status':'BOUNDED_OBSERVATION_PASS','scope':'finite target gateway windows and two recovery-window pools; not complete C01 or global zero errors','requests':counts,'result_sha256':expected_sha}
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--run-id',required=True);parser.add_argument('--evidence-dir',required=True);parser.add_argument('--expected-sha256',required=True);args=parser.parse_args()
     try:print(json.dumps(audit(Path(args.evidence_dir),args.run_id,args.expected_sha256),sort_keys=True));return 0

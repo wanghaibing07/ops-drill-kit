@@ -16,10 +16,10 @@ def output(d):
 class ScopedTests(unittest.TestCase):
  def test_success_event_contains_proof_and_historic_pass_is_not_promoted(self):
   d=details();self.assertTrue(cli.l03_details_valid(d));self.assertTrue(report.l03_details_valid(d))
-  inject={'drill_id':'L03','attempt_id':ATTEMPT,'event':'inject','result':'PASS','actor':'agent'}
-  check={'drill_id':'L03','attempt_id':ATTEMPT,'event':'check','result':'PASS','actor':'agent',**d}
+  inject={'drill_id':'L03','attempt_id':ATTEMPT,'event':'inject','result':'PASS'}
+  check={'drill_id':'L03','attempt_id':ATTEMPT,'event':'check','result':'PASS',**d}
   incomplete=report.summarize([json.dumps(inject),json.dumps(check)])['attempts'][0];self.assertEqual(incomplete['status'],'PARTIAL')
-  reset={'drill_id':'L03','attempt_id':ATTEMPT,'event':'reset','result':'PASS','actor':'agent'}
+  reset={'drill_id':'L03','attempt_id':ATTEMPT,'event':'reset','result':'PASS'}
   incomplete=report.summarize([json.dumps(inject),json.dumps(check),json.dumps(reset)])['attempts'][0];self.assertEqual(incomplete['status'],'PARTIAL')
   clean=dict(reset,result='CLEAN');row=report.summarize([json.dumps(inject),json.dumps(check),json.dumps(reset),json.dumps(clean)])['attempts'][0]
   self.assertEqual(row['status'],'PASS');self.assertEqual(row['scope'],'bounded_io_simulation');self.assertIsNone(row['mttr_proxy_seconds'])
@@ -36,7 +36,7 @@ class ScopedTests(unittest.TestCase):
    self.assertFalse(cli.l03_details_valid(d));self.assertFalse(report.l03_details_valid(d))
  def test_cli_check_records_proof_or_partial(self):
   state={'drill_id':'L03','attempt_id':ATTEMPT,'phase':'ACTIVE','run_id':RID,'unit':'opsdrill-l03-'+RID+'.service'}
-  args=types.SimpleNamespace(drill='L03',command='check',actor='agent',expect_run_id=RID,n04_version=None,m02_version=None)
+  args=types.SimpleNamespace(drill='L03',command='check',expect_run_id=RID,n04_version=None,m02_version=None)
   for valid in (True,False):
    obj=output(details())
    if not valid:obj['worker']['io_evidence']['after']['cgroup_read_bytes']=1
