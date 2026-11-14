@@ -7,7 +7,7 @@ import secrets
 import stat
 import subprocess
 
-parser=argparse.ArgumentParser(description='Run the agent-owned M02 contract on an authorized lab VM')
+parser=argparse.ArgumentParser(description='Run the auto-owned M02 contract on an authorized lab VM')
 parser.add_argument('--m02-version',choices=('legacy','baseline-v2'),default='legacy')
 options=parser.parse_args()
 cli='/opt/ops-drill-kit/bin/opsdrill'
@@ -30,7 +30,6 @@ results=[]
 def run(action,rid=None):
     args=[cli,action,'M02','--m02-version',options.m02_version]
     if rid:args+=['--expect-run-id',rid]
-    args+=['--actor','agent']
     cp=subprocess.run(args,capture_output=True,text=True,timeout=180)
     results.append({'action':action,'returncode':cp.returncode})
     (stage/'contract-results.json').write_text(json.dumps(results,indent=2),encoding='utf8')

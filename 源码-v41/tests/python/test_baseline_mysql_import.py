@@ -8,7 +8,7 @@ class TestCandidate(unittest.TestCase):
  def setUp(self):
   raw=b'abc';sha=hashlib.sha256(raw).hexdigest();empty=hashlib.sha256(b'').hexdigest()
   self.entry={'start':1,'end':1,'source_sha256':sha,'before_sha256':empty,'after_sha256':sha}
-  self.state={'version':1,'run_id':'a'*24,'actor':'agent','server_uuid':'id','status':'DONE','committed':[self.entry], 'schema_sha256':{'table':'digest'}}
+  self.state={'version':1,'run_id':'a'*24,'server_uuid':'id','status':'DONE','committed':[self.entry], 'schema_sha256':{'table':'digest'}}
   self.patches=[patch.object(m.c,'guard'),patch.object(m.c,'chain'),patch.object(m.c,'regular'),patch.object(m,'load_verifier'),patch.object(m,'require_network'),patch.object(m,'identity',return_value='id'),patch.object(m,'batches_preflight',return_value=(1000,[(1,1,'batch',sha)])),patch.object(m,'schema_sources',return_value=[]),patch.object(m,'sql',return_value=b'2'),patch.object(m,'read_journal',side_effect=lambda:self.state),patch.object(m,'file_bytes',return_value=raw),patch.object(m,'verify_data',return_value={'table':'digest'})]
   for p in self.patches:p.start();self.addCleanup(p.stop)
  def test_complete_valid_record(self):self.assertEqual(m.preflight()[0],'same')
@@ -31,7 +31,7 @@ class TestCandidate(unittest.TestCase):
   self.state['schema_sha256']={'table':'other'}
   with self.assertRaises(m.c.Refusal):m.preflight()
  def test_incomplete_or_extra_fields_rejected(self):
-  for state in (dict(self.state,committed=[]),dict(self.state,unexpected=True),dict(self.state,actor='unknown')):
+  for state in (dict(self.state,committed=[]),dict(self.state,unexpected=True),dict(self.state,phase='unknown')):
    with self.subTest(state=state):
     self.state=state
     with self.assertRaises(m.c.Refusal):m.preflight()

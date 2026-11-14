@@ -30,7 +30,7 @@ RID = 'a' * 24
 ATTEMPT = 'M03-20261113-123456'
 
 def args(command, rid=RID):
-    return argparse.Namespace(drill='M03', command=command, actor='agent', expect_run_id=rid,
+    return argparse.Namespace(drill='M03', command=command, expect_run_id=rid,
                               n04_version=None, variant=None)
 
 def cp(status, code=0, **extra):

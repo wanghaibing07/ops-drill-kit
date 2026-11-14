@@ -17,7 +17,6 @@ def http(path):
 def run(action,rid=None):
     args=[cli,action,'C01']
     if rid:args+=['--expect-run-id',rid]
-    args+=['--actor','agent']
     cp=subprocess.run(args,capture_output=True,text=True,timeout=120)
     try: obj=json.loads(cp.stdout)
     except ValueError: obj={}

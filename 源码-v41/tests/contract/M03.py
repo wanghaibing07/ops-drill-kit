@@ -14,7 +14,6 @@ records=[]
 def run(action, rid=None, timeout=420):
     argv=[cli,action,'M03']
     if rid: argv+=['--expect-run-id',rid]
-    argv+=['--actor','agent']
     result=subprocess.run(argv,capture_output=True,text=True,timeout=timeout)
     records.append({'action':action,'returncode':result.returncode,'stdout':result.stdout,'stderr':result.stderr})
     (stage/'cli-contract-results.json').write_text(json.dumps(records,indent=2),encoding='utf8')

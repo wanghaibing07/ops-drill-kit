@@ -42,7 +42,7 @@ class IntegrationTest(unittest.TestCase):
 
     def save(self,drill,state): self.state=state.copy()
     def args(self,command,rid=None):
-        return argparse.Namespace(command=command,drill='L04',actor='agent',expect_run_id=rid,variant=None)
+        return argparse.Namespace(command=command,drill='L04',expect_run_id=rid,variant=None)
 
     def test_bound_start_check_resolve_reset_and_repeat(self):
         receipt={'receipt':'L04_RUN_OWNER_V1','run_id':self.rid,'unit':'opsdrill-l04-'+self.rid+'-fault.service'}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise bounded L01 failure rollback on the authorized VM (actor=agent)."""
+"""Exercise bounded L01 failure rollback on the authorized VM."""
 import errno
 import json
 import os
@@ -96,7 +96,7 @@ def main():
     if before_mounts != after_mounts or before_loops != after_loops:
         raise RuntimeError('host mount or loop inventory changed')
     evidence = Path(tempfile.mkdtemp(prefix='opsdrill-l01-failures.', dir='/var/tmp'))
-    result = {'actor': 'agent', 'result': 'PASS', 'cases': results,
+    result = {'result': 'PASS', 'cases': results,
               'host_mount_and_loop_inventories_unchanged': True}
     (evidence / 'result.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
     print(json.dumps({'result': 'PASS', 'cases': len(results), 'evidence': str(evidence)}))

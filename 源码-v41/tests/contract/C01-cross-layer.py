@@ -1,4 +1,4 @@
-"""Small, bounded C01 evidence experiment; executed as agent in the lab."""
+"""Small, bounded C01 evidence experiment; executed as auto in the lab."""
 import hashlib,importlib.machinery,importlib.util,json,os,re,secrets,stat,subprocess,sys,time
 import urllib.error,urllib.request
 from pathlib import Path
@@ -53,7 +53,7 @@ def sample(stage_name,expected_code,expected_app):
  observations.append(snap)
  print(stage_name,'gateway',expected_code,'api',expected_app,'db reachable',flush=True)
 def action(name,run_id=None):
- args=[cli,name,'C01','--actor','agent']
+ args=[cli,name,'C01']
  if run_id:args+=['--expect-run-id',run_id]
  p=subprocess.run(args,capture_output=True,text=True,timeout=120)
  try:result=json.loads(p.stdout)
@@ -69,7 +69,7 @@ try:
  p,item=action('check',rid)
  if p.returncode!=1 or item.get('status')!='FAULT_PRESENT':raise RuntimeError('fault check unconfirmed')
  sample('fault',502,'inactive')
- note=subprocess.run([cli,'note','C01','--kind','diagnosis','--actor','agent'],capture_output=True,text=True,timeout=30)
+ note=subprocess.run([cli,'note','C01','--kind','diagnosis'],capture_output=True,text=True,timeout=30)
  if note.returncode:raise RuntimeError('diagnosis marker failed')
  p,item=action('resolve',rid)
  if p.returncode or item.get('status')!='MITIGATED':raise RuntimeError('mitigation unconfirmed')
@@ -103,7 +103,7 @@ try:
  attempts=[x for x in json.loads(report.stdout)['attempts'] if x.get('run_id')==rid]
  if len(attempts)!=1 or attempts[0].get('status')!='PARTIAL' or attempts[0].get('mttr_proxy_seconds') is not None:
   raise RuntimeError('report status mismatch')
- result={'run_id':rid,'actor':'agent','status':'CROSS_LAYER_SAMPLE_PASS','observations':observations,
+ result={'run_id':rid,'status':'CROSS_LAYER_SAMPLE_PASS','observations':observations,
          'matched_timing_requests':len(log_rows),'report_status':'PARTIAL',
          'scope':'three requests per phase; not a global error-rate baseline, full pool audit, or user exercise'}
  path=stage/'result.json'

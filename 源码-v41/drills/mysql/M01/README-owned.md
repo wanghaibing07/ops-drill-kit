@@ -5,11 +5,11 @@
 首次使用前审阅 `scripts/install_m01.py` 和本目录的受保护控制器模块，将审阅后的安装器放到仅 root 可修改的位置，再以 root 执行安装器并传入本目录。安装器校验固定摘要，不覆盖不同版本或不安全路径。
 
 ```bash
-sudo bin/opsdrill start M01 --actor unknown
-sudo bin/opsdrill check M01 --expect-run-id RUN_ID --actor unknown
+sudo bin/opsdrill start M01
+sudo bin/opsdrill check M01 --expect-run-id RUN_ID
 sudo bash tests/solutions/M01/owned_solution.sh RUN_ID
-sudo bin/opsdrill check M01 --expect-run-id RUN_ID --actor unknown
-sudo bin/opsdrill reset M01 --expect-run-id RUN_ID --actor unknown
+sudo bin/opsdrill check M01 --expect-run-id RUN_ID
+sudo bin/opsdrill reset M01 --expect-run-id RUN_ID
 ```
 
 watchdog 只恢复本轮索引可见性并保留状态，仍需 reset。持锁超过看门狗等待上限、身份或数据库基线变化时会拒绝操作；虚拟机重启后，可在确认本轮状态及索引身份后使用同一 run ID 执行 reset。数据库管理员的非协作 DDL 不受项目锁约束，应在独占实验环境中运行。

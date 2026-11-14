@@ -13,7 +13,7 @@ cli=importlib.util.module_from_spec(spec);spec.loader.exec_module(cli)
 RID='a'*24
 class VersionRouting(unittest.TestCase):
     def args(self,command):
-        return types.SimpleNamespace(drill='L02',command=command,actor='agent',variant=None,expect_run_id=RID,n04_version=None)
+        return types.SimpleNamespace(drill='L02',command=command,variant=None,expect_run_id=RID,n04_version=None)
     def test_start_persists_version_and_uses_matching_owner_verifier(self):
         import json
         args=self.args('start');args.expect_run_id=None

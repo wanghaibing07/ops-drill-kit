@@ -53,6 +53,6 @@ run `144d827f0b0b20f679a26150` 实际写入 64 MiB、存储读取计数增加 25
 
 检查事件保存同一 run ID 和证据；CLI 复位通过并持久化状态目录删除后记录 CLEAN。报告只有看到有效的本轮检查证据以及后续 reset PASS、CLEAN 才显示受控模拟 PASS，否则仍为 PARTIAL；历史缺少证据的 PASS 不会被追认，不计算 L03 的完整故障 MTTR。
 
-新机 root 保护候选快照run `39a0c0dc05fba64aece804fe` 完成受控负载、CLI 检查和复位，cgroup 读取增加 268435456 字节，挂载设备读取增加 524288 扇区；同一 attempt 事件保留、unit 停止、readiness 为 200。结果在 `/var/backups/opsdrill/l03-cli-proof-tests-d11f74ac5c10fc62/cli-contract-39a0c0dc05fba64aece804fe.json`，SHA256 `e4d10ca8c4767073bd6790c73a0963a442d20d13ac25a58648ce6c048911bad3`。候选完整 Python 单元测试 200 项通过；自动运行标记 `actor=agent`。
+新机 root 保护候选快照run `39a0c0dc05fba64aece804fe` 完成受控负载、CLI 检查和复位，cgroup 读取增加 268435456 字节，挂载设备读取增加 524288 扇区；同一 attempt 事件保留、unit 停止、readiness 为 200。结果在 `/var/backups/opsdrill/l03-cli-proof-tests-d11f74ac5c10fc62/cli-contract-39a0c0dc05fba64aece804fe.json`，SHA256 `e4d10ca8c4767073bd6790c73a0963a442d20d13ac25a58648ce6c048911bad3`。候选完整 Python 单元测试 200 项通过。
 
 受保护快照的新契约 run `cadef84b2e5b35e1f4d9f4e0` 实际完成注入、检查、身份绑定复位和报告核对，退出 0；该结果仅表示受控 I/O 模拟闭环。证据不全仍返回 2。

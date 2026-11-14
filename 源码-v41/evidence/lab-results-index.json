@@ -5,7 +5,6 @@
   "evidence": [
     {
       "drill": "M03",
-      "actor": "agent",
       "kind": "isolated-app-readiness",
       "external_path": "/var/backups/opsdrill/M03/app-readiness-1c3373e7bbca236d/result.json",
       "sha256": "5b32092ee6631cd1bf65ddae1570344a9f6a213ac55c19e2c9f159335aa3d206",
@@ -14,7 +13,6 @@
     },
     {
       "drill": "M04",
-      "actor": "agent",
       "kind": "restored-app-isolated-pitr",
       "external_path": "/var/backups/opsdrill/M04/app-db-live-4b8f863bade1383e/result.json",
       "sha256": "2cf3d6f8d381fa0be225136498863bcfea4873e4e6aa60dc9d4e187ca9acd57f",
@@ -23,7 +21,6 @@
     },
     {
       "drill": "C01",
-      "actor": "agent",
       "kind": "bounded-gateway-and-pool-observation",
       "external_path": "/var/backups/opsdrill/C01/window-metrics-665a2125737e210f/result.json",
       "sha256": "229b9e86691a93a748b8300574c0f608882ceb1c3266b501d99a3d7bf449e7fe",
@@ -32,7 +29,6 @@
     },
     {
       "drill": "M04",
-      "actor": "agent",
       "kind": "restored-app-500000-row-pitr-copy",
       "execution_host": "earlier-clean-lab",
       "external_path": "/var/tmp/opsdrill-m04-controller/9d8dd7878bb572db/app-business-result.json",
@@ -41,7 +37,6 @@
     },
     {
       "drill": "N03",
-      "actor": "agent",
       "kind": "gateway-502-504-timing",
       "execution_host": "newer-clean-lab",
       "external_path": "/var/backups/opsdrill/N03/gateway-evidence-018e9e687a49c41f/result.json",

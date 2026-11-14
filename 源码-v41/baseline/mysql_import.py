@@ -176,8 +176,7 @@ def preflight():
         return 'create',uuid,uid,batches,schema,None
     if state.get('status')!='DONE' or state.get('server_uuid')!=uuid or databases!=b'2':
         raise c.Refusal('数据库状态未完成或身份不符；请检查，不重试')
-    if (set(state)!={'version','run_id','actor','server_uuid','status','committed','schema_sha256'}
-            or state.get('actor') not in ('agent','user')
+    if (set(state)!={'version','run_id','server_uuid','status','committed','schema_sha256'}
             or not isinstance(state.get('run_id'),str)
             or not re.fullmatch(r'[0-9a-f]{24}',state['run_id'])
             or not isinstance(state.get('committed'),list)
@@ -193,10 +192,9 @@ def preflight():
     if verify_data(uuid)!=state.get('schema_sha256'):raise c.Refusal('既有数据库结构与记录不匹配')
     return 'same',uuid,uid,batches,schema,state
 
-def apply_new(uuid,uid,batches,schema,actor):
-    if actor not in ('user','agent'):raise c.Refusal('执行者必须明确')
+def apply_new(uuid,uid,batches,schema):
     unchanged(uuid)
-    state={'version':1,'run_id':secrets.token_hex(12),'actor':actor,'server_uuid':uuid,'status':'SCHEMA_APPLYING','committed':[]}
+    state={'version':1,'run_id':secrets.token_hex(12),'server_uuid':uuid,'status':'SCHEMA_APPLYING','committed':[]}
     save_journal(state,create=True)
     sql(b'CREATE DATABASE orderguard CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;\n'+b'\n'.join(schema),timeout=60)
     unchanged(uuid)
@@ -224,11 +222,10 @@ def apply_new(uuid,uid,batches,schema,actor):
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--apply',action='store_true')
-    parser.add_argument('--actor',choices=('agent','user'));args=parser.parse_args(argv)
+    args=parser.parse_args(argv)
     try:
         action,uuid,uid,batches,schema,_=preflight();print('数据库初始化:',action,flush=True)
         if not args.apply or action=='same':return 0
-        if not args.actor:raise c.Refusal('--apply 必须明确 --actor')
         c.chain(c.STATE.parent)
         try:c.STATE.mkdir(mode=0o700)
         except FileExistsError:pass
@@ -240,7 +237,7 @@ def main(argv=None):
             if not stat.S_ISREG(st.st_mode) or st.st_uid!=0 or st.st_nlink!=1 or stat.S_IMODE(st.st_mode)!=0o600:raise c.Refusal('部署锁不安全')
             fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
             action,uuid,uid,batches,schema,_=preflight()
-            if action=='create':print('数据库初始化完成:',apply_new(uuid,uid,batches,schema,args.actor))
+            if action=='create':print('数据库初始化完成:',apply_new(uuid,uid,batches,schema))
         finally:os.close(fd)
         return 0
     except (c.Refusal,OSError,ValueError,UnicodeError,KeyError,subprocess.SubprocessError):

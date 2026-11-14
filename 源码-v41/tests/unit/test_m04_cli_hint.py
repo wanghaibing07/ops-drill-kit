@@ -19,7 +19,7 @@ class M04HintTests(unittest.TestCase):
 
     def test_m04_dispatch_uses_sixteen_character_id(self):
         rid='a'*16
-        args=SimpleNamespace(drill='M04',command='check',actor='agent',expect_run_id=rid,n04_version=None)
+        args=SimpleNamespace(drill='M04',command='check',expect_run_id=rid,n04_version=None)
         state={'phase':'ACTIVE','run_id':rid}
         with patch.object(cli,'require_root'),patch.object(cli,'safe_dir'),patch.object(cli,'open_lock',return_value=42), \
              patch.object(cli.os,'close'),patch.object(cli,'read_state',return_value=state),patch.object(cli,'m04_action',return_value=5):
@@ -31,13 +31,13 @@ class M04HintTests(unittest.TestCase):
         state={'phase':'ACTIVE','attempt_id':'M04-20261113-123456','run_id':'a'*16,'m04_version':'synthetic-v3'}
         hint=MagicMock();hint.stat.return_value.st_size=5;hint.read_text.return_value='hint'
         with patch.object(cli,'secure_file',return_value=hint),patch.object(cli,'event') as event,redirect_stdout(io.StringIO()):
-            self.assertEqual(cli.m04_action(SimpleNamespace(command='hint',actor='agent'),state,None),0)
-            self.assertEqual(cli.m04_action(SimpleNamespace(command='note',actor='agent'),state,None),0)
+            self.assertEqual(cli.m04_action(SimpleNamespace(command='hint'),state,None),0)
+            self.assertEqual(cli.m04_action(SimpleNamespace(command='note'),state,None),0)
         self.assertEqual([call.args[2] for call in event.call_args_list],['hint','diagnosis'])
         self.assertTrue(all(call.args[5]['run_id']=='a'*16 and call.args[5]['m04_version']=='synthetic-v3' for call in event.call_args_list))
 
     def test_no_active_attempt_refuses(self):
         for command in ('hint','note'):
-            with self.assertRaises(cli.Refused):cli.m04_action(SimpleNamespace(command=command,actor='agent'),None,None)
+            with self.assertRaises(cli.Refused):cli.m04_action(SimpleNamespace(command=command),None,None)
 
 if __name__=='__main__':unittest.main()

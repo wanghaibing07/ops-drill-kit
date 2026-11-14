@@ -129,11 +129,10 @@ def install_config(st):
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--apply',action='store_true')
-    parser.add_argument('--actor',choices=('agent','user'));args=parser.parse_args(argv)
+    args=parser.parse_args(argv)
     try:
         preflight();print('MySQL 首次初始化前置条件通过；默认只读。')
         if not args.apply:return 0
-        if not args.actor:raise c.Refusal('--apply 必须明确 actor')
         c.chain(c.STATE.parent)
         try:c.STATE.mkdir(mode=0o700)
         except FileExistsError:pass
@@ -144,7 +143,7 @@ def main(argv=None):
             st=os.fstat(fd)
             if not stat.S_ISREG(st.st_mode) or st.st_uid!=0 or st.st_nlink!=1 or stat.S_IMODE(st.st_mode)!=0o600:raise c.Refusal('锁不安全')
             fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB);config_stat,log_id=preflight()
-            state={'version':1,'actor':args.actor,'status':'RUNNING','phase':'CONFIGURING'};save(state,create=True)
+            state={'version':1,'status':'RUNNING','phase':'CONFIGURING'};save(state,create=True)
             install_config(config_stat)
             state['phase']='STARTING';save(state)
             run(['/usr/bin/systemctl','start','mysqld.service'],timeout=120)

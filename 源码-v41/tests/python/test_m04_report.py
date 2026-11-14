@@ -4,7 +4,7 @@ spec=importlib.util.spec_from_file_location('report',Path(__file__).resolve().pa
 report=importlib.util.module_from_spec(spec);spec.loader.exec_module(report)
 RID='a'*16
 def e(kind,result,run=RID):
-    d={'drill_id':'M04','attempt_id':'M04-20261113-123456','event':kind,'result':result,'actor':'agent'}
+    d={'drill_id':'M04','attempt_id':'M04-20261113-123456','event':kind,'result':result}
     if run is not None:d['run_id']=run
     return json.dumps(d)
 class ReportTests(unittest.TestCase):

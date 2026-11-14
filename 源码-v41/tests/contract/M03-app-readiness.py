@@ -55,7 +55,7 @@ for name,data in zip(('proxy.py','server.py'),helper_data):write_file(stage/name
 spec=importlib.util.spec_from_file_location('reviewed_cli',root/'scripts/opsdrill_cli.py');v=importlib.util.module_from_spec(spec);spec.loader.exec_module(v)
 rid=None;started=False;reset_done=False;reset_attempted=False;proxy=None;api=None;listener=None;result=None
 def action(name,rid=None):
- args=[str(cli),name,'M03','--actor','agent']
+ args=[str(cli),name,'M03']
  if rid:args+=['--expect-run-id',rid]
  q=subprocess.run(args,capture_output=True,text=True,timeout=780 if name=='start' else 420,env=env)
  parsed=[]
@@ -110,7 +110,7 @@ try:
  code,after_recovery=get(url+'/__opsdrill/pool-metrics');assert code==200 and after_recovery['pid']==api.pid and after_recovery['legacy']['generation']==before['legacy']['generation']
  assert after_recovery['legacy']['errors']['factory']==after_fault['legacy']['errors']['factory']
  assert get('http://127.0.0.1:8080/ready')[0]==200
- result={'status':'PASS','actor':'agent','run_id':rid,'attempt_id':attempt,'mysql_error':1040,'isolated_api_fault_http':fault,'isolated_api_recovered_http':recovered,'api_pid':api.pid,'pool_generation':before['legacy']['generation'],'pool_factory_error_delta_fault':1,'pool_factory_error_delta_recovery':0,'scope':'actual FastAPI readiness handler with in-memory DB factory adapter and peer-restricted relay to this isolated synthetic MySQL; production API unchanged'}
+ result={'status':'PASS','run_id':rid,'attempt_id':attempt,'mysql_error':1040,'isolated_api_fault_http':fault,'isolated_api_recovered_http':recovered,'api_pid':api.pid,'pool_generation':before['legacy']['generation'],'pool_factory_error_delta_fault':1,'pool_factory_error_delta_recovery':0,'scope':'actual FastAPI readiness handler with in-memory DB factory adapter and peer-restricted relay to this isolated synthetic MySQL; production API unchanged'}
 finally:
  if listener is not None:listener.close()
  terminate(api,'API');terminate(proxy,'proxy')
@@ -120,7 +120,7 @@ if not reset_done or result is None:raise RuntimeError('M03 API test or identity
 assert not os.path.lexists('/var/lib/opsdrill/cli/M03.json') and get('http://127.0.0.1:8080/ready')[0]==200
 events=[json.loads(line) for line in Path('/var/lib/opsdrill/events.jsonl').read_text().splitlines()]
 owned=[x for x in events if x.get('drill_id')=='M03' and x.get('attempt_id')==attempt]
-assert owned and all(x.get('actor')=='agent' for x in owned) and any(x.get('event')=='reset' and x.get('result')=='PASS' for x in owned)
+assert owned and any(x.get('event')=='reset' and x.get('result')=='PASS' for x in owned)
 result['cleanup']='PASS';result['business_ready_after']=200
 fd=os.open(resultdir/'result.json',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
 with os.fdopen(fd,'w') as f:json.dump(result,f,sort_keys=True);f.write('\n');f.flush();os.fsync(f.fileno())

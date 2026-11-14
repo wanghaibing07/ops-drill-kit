@@ -5,7 +5,7 @@ from pathlib import Path
 
 CLI='/opt/ops-drill-kit/bin/opsdrill'
 def run(action,run_id=None):
-    args=[CLI,action,'L03','--actor','agent']
+    args=[CLI,action,'L03']
     if run_id:args+=['--expect-run-id',run_id]
     cp=subprocess.run(args,capture_output=True,text=True,timeout=45)
     try:obj=json.loads(cp.stdout)

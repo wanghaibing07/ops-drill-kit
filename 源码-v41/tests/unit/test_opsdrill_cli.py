@@ -29,7 +29,7 @@ class StateMachineTests(unittest.TestCase):
         self.addCleanup(lambda:[p.stop() for p in reversed(self.patches)])
 
     def args(self,command,drill='L03'):
-        return argparse.Namespace(command=command,drill=drill,actor='agent')
+        return argparse.Namespace(command=command,drill=drill)
 
     def test_only_verified_identity_can_reset(self):
         rid='a'*24; unit='opsdrill-l03-'+rid+'.service'

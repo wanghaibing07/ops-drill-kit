@@ -2,7 +2,7 @@ import json, os, pathlib, signal, subprocess, sys, time
 root=pathlib.Path('/opt/ops-drill-kit')
 state=pathlib.Path('/var/lib/opsdrill/cli/N04.json')
 assert not state.exists()
-cmd=[str(root/'bin/opsdrill'),'start','N04','--actor','agent']
+cmd=[str(root/'bin/opsdrill'),'start','N04']
 child=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
 rid=None; stopped=False; killed=False
 try:
@@ -24,7 +24,7 @@ try:
  x=json.loads(state.read_text()); assert x['phase']=='STARTING' and x['run_id']==rid
  os.kill(child.pid,signal.SIGKILL);killed=True;stopped=False
  child.wait(timeout=5)
- result=subprocess.run([str(root/'bin/opsdrill'),'reset','N04','--expect-run-id',rid,'--actor','agent'],capture_output=True,text=True,timeout=15)
+ result=subprocess.run([str(root/'bin/opsdrill'),'reset','N04','--expect-run-id',rid],capture_output=True,text=True,timeout=15)
  print(result.stdout,end='');print(result.stderr,end='',file=sys.stderr)
  assert result.returncode==0 and not state.exists()
  response=json.loads(result.stdout);assert response['run_id']==rid and response['service_stopped'] is True

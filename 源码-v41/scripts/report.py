@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize recorded drill events without inventing actors or times."""
+"""Summarize recorded drill events without inventing times."""
 import argparse
 import collections
 import json
@@ -12,7 +12,7 @@ MAX_LINE = 65536
 
 
 def duration(start, end):
-    if not start or not end or start.get('actor') not in ('user','agent') or start.get('actor') != end.get('actor'):
+    if not start or not end:
         return None
     if not start.get('boot_id') or start.get('boot_id') != end.get('boot_id'):
         return None
@@ -95,14 +95,6 @@ def summarize(lines):
             checks = [x for x in subsequent if x['event']=='check' and (x.get('result') in allowed_checks or (x.get('result')=='PASS' and l03_details_valid({k:x.get(k) for k in ('run_id','l03_contract','io_evidence','elapsed_ns','read_bytes','storage_read_bytes','health_before','health_after')})))]
         injections = [x for x in events if x['event']=='inject' and x.get('result')=='PASS']
         nonzero_checks = sum(x['event']=='check' and x.get('result') in (('FAIL','PENDING','PARTIAL') if drill in ('C01','L03') else ('FAIL','PENDING')) for x in events)
-        # Failed or interrupted injection has no PASS start, but its actor can
-        # still be reported when every injection event agrees on a known actor.
-        if start:
-            actor = start.get('actor')
-        else:
-            actors = [x.get('actor') for x in events if x['event']=='inject']
-            actor = actors[0] if actors and all(x==actors[0] for x in actors) else None
-        actor = actor if actor in ('user','agent') else 'unknown'
         ids = [x.get('run_id') for x in events] if drill in ('C01','M04') else []
         runs = {x for x in ids if x is not None}
         identity_invalid = (drill=='C01' and len(runs)!=1) or (drill=='M04' and bool(runs) and (len(runs)!=1 or any(x is None for x in ids)))
@@ -113,14 +105,13 @@ def summarize(lines):
         rows.append({'drill_id':drill,'attempt_id':attempt,
                      **({'run_id':next(iter(runs)) if len(runs)==1 and not identity_invalid else None} if drill in ('C01','M04') else {}),
                      **({'scope':'bounded_io_simulation'} if scoped else {}),
-                     'actor':actor,
                      'status':('INVALID' if len(injections)>1 or identity_invalid else 'PARTIAL' if scoped and not cleaned else checks[-1]['result'] if checks else 'INCOMPLETE'),
                      'nonzero_checks':nonzero_checks,
                      'hint_count':sum(x['event']=='hint' for x in events),
                      'mttd_proxy_seconds':duration(start,diagnosis) if len(injections)==1 and not identity_invalid else None,
                      'mttr_proxy_seconds':duration(start,passed) if len(injections)==1 and not identity_invalid else None})
     return {'attempts':rows, 'invalid_lines':invalid,
-            'note':'Times require the same recorded actor and a shared boot monotonic clock; agent times are automation, not manual timings.'}
+            'note':'Times are computed only when both events share a boot monotonic clock; elapsed values are proxies, not manual timings.'}
 
 
 def main():
@@ -141,14 +132,13 @@ def main():
         if not result['attempts']:
             print('未找到可用演练记录；不能据此判断是否曾经练习。')
         else:
-            print('| 演练 | 记录 | 执行者 | 状态 | 非零检查（含进行中） | 提示 | MTTD proxy 秒 | MTTR proxy 秒 |')
-            print('| --- | --- | --- | --- | ---: | ---: | ---: | ---: |')
+            print('| 演练 | 记录 | 状态 | 非零检查（含进行中） | 提示 | MTTD proxy 秒 | MTTR proxy 秒 |')
+            print('| --- | --- | --- | ---: | ---: | ---: | ---: |')
             for row in result['attempts']:
-                actor = row['actor'] if row['actor'] in ('user','agent','unknown') else 'unknown'
                 a = row['mttd_proxy_seconds'] if row['mttd_proxy_seconds'] is not None else '未知'
                 b = row['mttr_proxy_seconds'] if row['mttr_proxy_seconds'] is not None else '未知'
-                print('| {drill_id} | {attempt_id} | {actor} | {status} | {nonzero_checks} | {hint_count} | {a} | {b} |'.format(**{**row,'attempt_id':row['attempt_id']+(' (run '+(row.get('run_id') or '未知')+')' if row['drill_id'] in ('C01','M04') and row.get('run_id') else ''),'actor':actor,'status':row['status']+(' (受控模拟)' if row.get('scope')=='bounded_io_simulation' else ''),'a':a,'b':b}))
-        print('\n无效记录数：%d。时间只对同一启动周期、同一执行者的单调时钟记录计算；agent 表示自动运行耗时。' % result['invalid_lines'])
+                print('| {drill_id} | {attempt_id} | {status} | {nonzero_checks} | {hint_count} | {a} | {b} |'.format(**{**row,'attempt_id':row['attempt_id']+(' (run '+(row.get('run_id') or '未知')+')' if row['drill_id'] in ('C01','M04') and row.get('run_id') else ''),'status':row['status']+(' (受控模拟)' if row.get('scope')=='bounded_io_simulation' else ''),'a':a,'b':b}))
+        print('\n无效记录数：%d。时间只对同一启动周期的单调时钟记录计算，属于代理值而非人工计时。' % result['invalid_lines'])
     else:
         print(json.dumps(result,ensure_ascii=False,indent=2))
     return 0

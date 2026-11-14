@@ -23,4 +23,4 @@ run `949c1b5837e9d7f934b51a26` 于隔离服务启动后、InvocationID 写入前
 
 run `0ca533f01981bb1ec999bd7e` 在服务启动后、InvocationID 写入前注入受控异常，等待约 180 秒后由 systemd 定时器自然启动看门狗；看门狗匹配并绑定本轮身份，记录 STOPPED_OR_ABSENT，随后按相同 ID 复位且清理检查通过。该轮仍不是 SIGKILL、断电或跨重启测试。
 
-标准入口 `inject.sh`、`check.sh`、`reset.sh` 均转发至统一 CLI，并接受相同的 `--actor`、`--expect-run-id` 等参数。`bridge.sh` 是保留的旧版直接入口，不生成统一 CLI 事件，也不跟随 v2 版本路由，仅用于经核验的旧状态；不要用它操作 v2 轮次。
+标准入口 `inject.sh`、`check.sh`、`reset.sh` 均转发至统一 CLI，并接受相同的 `--expect-run-id` 等参数。`bridge.sh` 是保留的旧版直接入口，不生成统一 CLI 事件，也不跟随 v2 版本路由，仅用于经核验的旧状态；不要用它操作 v2 轮次。

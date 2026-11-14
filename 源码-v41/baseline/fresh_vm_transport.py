@@ -110,7 +110,7 @@ with os.fdopen(fd,'rb') as f:
 if not stat.S_ISREG(s.st_mode) or s.st_uid!=0 or s.st_nlink!=1 or s.st_mode&0o022 or len(b)>1048576 or hashlib.sha256(b).hexdigest()!=expected: sys.exit(2)
 os.execv('/usr/bin/python3',['/usr/bin/python3','-I','-B',str(p)]+sys.argv[3:])"""
             parts=['sudo','-n','/usr/bin/python3','-I','-B','-c',wrapper,script,args.bootstrap_sha,'--vm-uuid',args.dmi]
-            if args.action=='bootstrap-apply':parts+=['--apply','--actor','agent']
+            if args.action=='bootstrap-apply':parts+=['--apply']
             return execute(client,' '.join(shlex.quote(x) for x in parts),limit=3600)
         finally:transport.close()
 

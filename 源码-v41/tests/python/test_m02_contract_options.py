@@ -34,7 +34,7 @@ sys.exit(0)
             with self.subTest(version=expected):
                 q,calls=self.invoke(flags);self.assertEqual(q.returncode,0,q.stderr);self.assertEqual(len(calls),7)
                 self.assertTrue(all(c[c.index('--m02-version')+1]==expected for c in calls))
-                self.assertTrue(all(c[c.index('--actor')+1]=='agent' for c in calls))
+                self.assertTrue(all('--expect-run-id' not in c for c in calls))
     def test_unknown_version_refused_before_any_action(self):
         q,calls=self.invoke(['--m02-version','unknown']);self.assertNotEqual(q.returncode,0);self.assertEqual(calls,[])
     @unittest.skipUnless(os.geteuid()==0,'requires root-owned parent')

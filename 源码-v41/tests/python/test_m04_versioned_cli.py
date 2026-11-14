@@ -13,7 +13,7 @@ cli=importlib.util.module_from_spec(spec);spec.loader.exec_module(cli)
 RID='a'*16
 
 class RoutingTests(unittest.TestCase):
-    def args(self,command):return types.SimpleNamespace(command=command,actor='agent',variant=None)
+    def args(self,command):return types.SimpleNamespace(command=command,variant=None)
     def test_start_persists_v4_before_invocation(self):
         writes=[]
         def save(drill,state):writes.append(dict(state))

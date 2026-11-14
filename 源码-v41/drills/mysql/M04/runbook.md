@@ -1,6 +1,6 @@
 # M04 备份和时间点恢复
 
-统一 CLI 使用全新 socket-only 合成 source/target，不覆盖业务主库。新运行使用独立安装的 v4；执行 `opsdrill start M04 --actor agent` 并记录 16 位 run ID；后续 `check`、`resolve`、`reset` 均须指定 `--expect-run-id`。回放异常或账号归属不明时保留状态及 run ID，不猜测清理。
+统一 CLI 使用全新 socket-only 合成 source/target，不覆盖业务主库。新运行使用独立安装的 v4；执行 `opsdrill start M04` 并记录 16 位 run ID；后续 `check`、`resolve`、`reset` 均须指定 `--expect-run-id`。回放异常或账号归属不明时保留状态及 run ID，不猜测清理。
 
 run `8ea3dadb37fc948b` 在授权恢复副本通过统一 CLI：误删故障判定、误删前回放、恢复判定、错误 ID 拒绝和两次复位均成功。`make contract-m04` 可在确认空闲的授权实验机执行新一轮；过程及范围见 `docs/runbooks/M04-evidence.md`。这只验证固定合成数据、正常生命周期；跨重启或任意意外中断恢复、磁盘总配额及完整业务应用数据库联合恢复尚未完成。
 
@@ -36,7 +36,7 @@ v4 在 unit 已被回收时，仅在本轮身份、同一启动周期、systemd 
 
 新机通过 `tests/contract/M04-app-recovered-live.py` 完成一轮联合验证：备份并还原 8 个明确列出的非凭据应用、配置和依赖清单文件，以还原后的应用文件启动独立 FastAPI；同一轮使用统一 CLI 创建隔离合成 MySQL，执行全备、更新、误删及截止误删前的 PITR。应用的订单接口读取恢复目标库：全备状态下两笔合成订单金额分别为 100、200；PITR 后，同一应用进程及同一订单池读到 101、200，更新保留且被误删的订单存在。两个阶段接口及 `/ready` 均为 200。
 
-该轮事件均为 `actor=agent`。测试账号只获目标表 SELECT 权限，清理回执证明其在实例停止前已删除；本轮两个隔离实例已按身份停止，现有业务 readiness 为 200。结果为 `/var/backups/opsdrill/M04/app-db-live-4b8f863bade1383e/result.json`，SHA256 `2cf3d6f8d381fa0be225136498863bcfea4873e4e6aa60dc9d4e187ca9acd57f`；应用文件实验目录记在该结果中。
+测试账号只获目标表 SELECT 权限，清理回执证明其在实例停止前已删除；本轮两个隔离实例已按身份停止，现有业务 readiness 为 200。结果为 `/var/backups/opsdrill/M04/app-db-live-4b8f863bade1383e/result.json`，SHA256 `2cf3d6f8d381fa0be225136498863bcfea4873e4e6aa60dc9d4e187ca9acd57f`；应用文件实验目录记在该结果中。
 
 复现入口需随 `m04-app-proxy.py`、`m04-restored-app-server.py` 一起从可信项目副本暂存到 root 控制且其他用户不可写的目录。独立核对入口 SHA256 `ef86bdd1f10d6b4b312248e6b628603eb199b484bd37b8d83649e48d215a53ca` 和源码来源后执行：
 
@@ -53,7 +53,7 @@ v4 在 unit 已被回收时，仅在本轮身份、同一启动周期、systemd 
 
 先前 run `fd5303deba2c3d5a` 的单表 PITR 因首次审计拒绝而经过独立账本受控续接；原失败账本保留。其已停止目标实例包含完整合成业务库。本轮在同一授权实验机核验该目标正常停止、数据目录无链接和多重硬链接后，逐文件复制并核对摘要，在新 socket-only 实例中打开副本，没有重跑 50 万行导入，也没有修改原恢复目录。
 
-新 run `9d8dd7878bb572db` 比对旧库和商户表等 3 张表的内容摘要及 4 张表的结构摘要，确认恢复库有 500,000 条订单、商户 88 有 25,000 条。另将 8 个指定应用和配置文件备份还原，启动隔离应用进程；`/ready` 和订单查询均返回 200，接口返回的 20 条订单与同一恢复库的只读查询逐项一致。临时账号仅有两个订单表的 SELECT 权限，结束前删除并核实；新旧隔离实例均已停止，原失败账本摘要保持一致。独立账本和结果标记 `actor=agent`，结果位于 `/var/tmp/opsdrill-m04-controller/9d8dd7878bb572db/app-business-result.json`，SHA256 `c2ec466b7c06b489b9e38ef47e0797bedcac1311377d53b4e2d6b453aef54cdd`。
+新 run `9d8dd7878bb572db` 比对旧库和商户表等 3 张表的内容摘要及 4 张表的结构摘要，确认恢复库有 500,000 条订单、商户 88 有 25,000 条。另将 8 个指定应用和配置文件备份还原，启动隔离应用进程；`/ready` 和订单查询均返回 200，接口返回的 20 条订单与同一恢复库的只读查询逐项一致。临时账号仅有两个订单表的 SELECT 权限，结束前删除并核实；新旧隔离实例均已停止，原失败账本摘要保持一致。独立账本和结果结果位于 `/var/tmp/opsdrill-m04-controller/9d8dd7878bb572db/app-business-result.json`，SHA256 `c2ec466b7c06b489b9e38ef47e0797bedcac1311377d53b4e2d6b453aef54cdd`。
 
 `tests/contract/M04-business-copy-app.py` 是本轮执行的原样入口，默认只检查、不复制；仅使用 `--apply` 才新建隔离副本与实例。它固定依赖上述先前恢复目录、同机已安装的 M04 v2 受保护运行时和对应 Python 环境，不适合在任意新机使用。将入口复制到 root 控制、其他用户不可写的目录，独立核验其 SHA256 `3020403311861b6b1dbc317546d909ffd560c62979cb72f5d59fa3ba24491f97` 和来源，再提供 `--vm-uuid <独立核实的目标VM-DMI-UUID>`；仅在授权且前置检查通过后增加 `--apply`。异常或身份不明时保留本轮账本和资源，不猜测清理。
 

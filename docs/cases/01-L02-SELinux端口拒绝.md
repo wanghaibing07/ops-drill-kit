@@ -117,9 +117,9 @@ type=SOCKADDR ... saddr=<被拒绝的地址族与端口>
 ## 复现入口
 
 ```bash
-sudo bin/opsdrill start L02 --actor user
-sudo bin/opsdrill check L02 --actor user --expect-run-id RUN_ID
-sudo bin/opsdrill reset L02 --actor user --expect-run-id RUN_ID
+sudo bin/opsdrill start L02
+sudo bin/opsdrill check L02 --expect-run-id RUN_ID
+sudo bin/opsdrill reset L02 --expect-run-id RUN_ID
 ```
 
 只在确认空闲、已授权的 VMware 实验机上跑。启动会真的注入故障。

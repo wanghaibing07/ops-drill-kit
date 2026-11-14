@@ -17,13 +17,13 @@ class N03BootstrapWiringTests(unittest.TestCase):
     if any('orchestrate.py' in str(x) for x in args):self.assertEqual(target.read_bytes(),m.N03_SLOW_DROPIN)
     calls.append(args);return b''
    with patch.object(m,'STATE',state),patch.object(m,'JOURNAL',journal),patch.object(m,'preflight'),patch.object(m,'create_marker'),patch.object(m,'ensure_lab_dirs'),patch.object(m,'ensure_contract_evidence_dirs'),patch.object(m,'ensure_m02_dirs'),patch.object(m,'configure_mysql_repo'),patch.object(m,'install_m04'),patch.object(m,'ensure_n03_slow_dropin',side_effect=lambda:actual(systemd)),patch.object(m,'run',side_effect=run),contextlib.redirect_stdout(io.StringIO()),contextlib.redirect_stderr(io.StringIO()):
-    code=m.main(['--vm-uuid','11111111-2222-3333-4444-555555555555','--apply','--actor','agent'])
+    code=m.main(['--vm-uuid','11111111-2222-3333-4444-555555555555','--apply'])
    record=json.loads(journal.read_text())
    if conflict:
     self.assertEqual(code,2);self.assertEqual(record['phase'],'n03_slow_dropin');self.assertEqual(target.read_text(),'preserve')
     self.assertFalse(any('orchestrate.py' in str(x) for cmd in calls for x in cmd))
    else:
-    self.assertEqual((code,record['status'],record['actor']),(0,'DONE','agent'))
+    self.assertEqual((code,record['status']),(0,'DONE'))
     self.assertTrue(any('orchestrate.py' in str(x) for cmd in calls for x in cmd))
  def test_installs_before_stack_start(self):self.case(False)
  def test_conflict_preserved_and_stack_not_started(self):self.case(True)

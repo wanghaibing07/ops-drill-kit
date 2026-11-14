@@ -7,7 +7,7 @@ OBSERVER="$ROOT/tests/contract/l01_observe.py"
 SOLUTION="$ROOT/tests/solutions/L01/solution.sh"
 run_id=''
 if [[ ${1:-} == --help ]]; then
-  printf 'Usage: sudo %s\nRun guarded L01 inode and deleted-open contracts as actor=agent.\n' "$0"
+  printf 'Usage: sudo %s\nRun guarded L01 inode and deleted-open contracts.\n' "$0"
   exit 0
 fi
 if (( $# != 0 || EUID != 0 )); then
@@ -18,7 +18,7 @@ cleanup() {
   local rc=$?
   trap - EXIT
   if [[ -n $run_id ]]; then
-    if ! "$CLI" reset L01 --actor agent --expect-run-id "$run_id"; then
+    if ! "$CLI" reset L01 --expect-run-id "$run_id"; then
       printf 'L01 contract: owned cleanup failed; preserve and inspect the run\n' >&2
       (( rc != 0 )) || rc=1
     fi
@@ -37,10 +37,10 @@ expect_rc() {
 }
 bash "$ROOT/drills/linux/L01/clean.sh"
 "$CLI" status | /usr/bin/grep -qx 'L01 NO_CLI_STATE'
-expect_rc 2 "$CLI" check L01 --actor agent
+expect_rc 2 "$CLI" check L01
 for variant in inode deleted-open; do
   printf 'L01 contract: %s\n' "$variant"
-  receipt="$("$CLI" start L01 --variant "$variant" --actor agent)"
+  receipt="$("$CLI" start L01 --variant "$variant")"
   parsed="$(printf '%s' "$receipt" | /usr/bin/python3 -c '
 import json, re, sys
 v = sys.argv[1]
@@ -59,8 +59,8 @@ if v == "deleted-open": print(obj["unit"])
   if [[ $variant == deleted-open ]]; then unit="${parsed#*$'\n'}"; fi
   wrong_id=000000000000000000000000
   [[ $run_id != "$wrong_id" ]] || wrong_id=ffffffffffffffffffffffff
-  expect_rc 2 "$CLI" reset L01 --actor agent --expect-run-id "$wrong_id"
-  expect_rc 1 "$CLI" check L01 --actor agent --expect-run-id "$run_id"
+  expect_rc 2 "$CLI" reset L01 --expect-run-id "$wrong_id"
+  expect_rc 1 "$CLI" check L01 --expect-run-id "$run_id"
   before="$(/usr/bin/python3 "$OBSERVER" "$variant" fault "$run_id")"
   printf '%s\n' "$before"
   if [[ $variant == inode ]]; then
@@ -78,11 +78,11 @@ if after["available_bytes"] - before["available_bytes"] < 28 * 1024 * 1024:
     raise SystemExit("deleted-open space was not released")
 ' "$before" "$after"
   fi
-  expect_rc 0 "$CLI" check L01 --actor agent --expect-run-id "$run_id"
-  expect_rc 0 "$CLI" reset L01 --actor agent --expect-run-id "$run_id"
-  expect_rc 0 "$CLI" reset L01 --actor agent --expect-run-id "$run_id"
+  expect_rc 0 "$CLI" check L01 --expect-run-id "$run_id"
+  expect_rc 0 "$CLI" reset L01 --expect-run-id "$run_id"
+  expect_rc 0 "$CLI" reset L01 --expect-run-id "$run_id"
   run_id=''
-  expect_rc 2 "$CLI" check L01 --actor agent
+  expect_rc 2 "$CLI" check L01
   bash "$ROOT/drills/linux/L01/clean.sh"
 done
-printf 'L01 contract: PASS (actor=agent)\n'
+printf 'L01 contract: PASS\n'

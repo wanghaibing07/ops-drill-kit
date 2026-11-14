@@ -42,7 +42,7 @@ fd=os.open(sys.argv[1],os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
 with os.fdopen(fd,'w') as f:json.dump({'child_pid':c.pid},f);f.flush();os.fsync(f.fileno())
 time.sleep(55)
 '''
-save(directory/'intent.json',{'run_id':rid,'unit':unit,'actor':'agent','status':'STARTING'})
+save(directory/'intent.json',{'run_id':rid,'unit':unit,'status':'STARTING'})
 print('SUPERVISION_RUN',rid,flush=True)
 run(['/usr/bin/systemd-run','--unit='+unit,'--service-type=exec','--property=KillMode=control-group',
      '--property=RuntimeMaxSec=60s','--property=TimeoutStopSec=5s',
@@ -75,7 +75,7 @@ cgroup=Path('/sys/fs/cgroup'+group+'/cgroup.procs')
 if cgroup.exists() and cgroup.read_text().strip():raise RuntimeError('cgroup still populated; preserve unit')
 after=props(unit)
 if after.get('ActiveState') not in ('failed','inactive'):raise RuntimeError('unit state not stopped')
-save(directory/'result.json',{'run_id':rid,'actor':'agent','status':'PASS','unit_state':after.get('ActiveState'),
+save(directory/'result.json',{'run_id':rid,'status':'PASS','unit_state':after.get('ActiveState'),
                               'main_and_child_stopped':True,'cgroup_empty_or_absent':True,
                               'scope':'synthetic systemd worker; not an import or database recovery'})
 print('PASS owned main and child stopped; cgroup empty or absent; unit preserved',unit,flush=True)

@@ -47,9 +47,8 @@ def validate_receipt(receipt):
     return receipt
 
 def validate_record(record):
-    require(type(record) is dict and set(record) == {'version', 'receipt', 'actor', 'boot_id'}
+    require(type(record) is dict and set(record) == {'version', 'receipt', 'boot_id'}
             and type(record['version']) is int and record['version'] == 1
-            and record['actor'] in ('user', 'agent', 'unknown')
             and isinstance(record['boot_id'], str) and BOOT.fullmatch(record['boot_id']), 'BAD_RECORD')
     validate_receipt(record['receipt'])
     return record
@@ -224,8 +223,7 @@ class Controller:
     def __init__(self, store, backend, boot=read_boot):
         self.store, self.backend, self.boot = store, backend, boot
 
-    def execute(self, action, actor, expected=None):
-        require(actor in ('user','agent','unknown'), 'BAD_ACTOR')
+    def execute(self, action, expected=None):
         require(action in ('start','status','check','resolve','reset'), 'BAD_ACTION')
         require((action in ('start','status') and expected is None) or
                 (action in ('check','resolve','reset') and isinstance(expected,str) and RID.fullmatch(expected)), 'EXPECTED_RUN_REQUIRED')
@@ -234,16 +232,16 @@ class Controller:
                 rid = secrets.token_hex(12)
                 receipt = {'kind':'C01_APP_DOWN_V1', 'owner_id':secrets.token_hex(16), 'run_id':rid,
                            'timer':'opsdrill-n03-recover-'+rid+'.timer'}
-                record = {'version':1, 'receipt':receipt, 'actor':actor, 'boot_id':self.boot()}
+                record = {'version':1, 'receipt':receipt, 'boot_id':self.boot()}
                 self.store.prepare(dfd, record)
                 self.backend.call('inject', receipt)
-                return 0, {'status':'FAULT_CONFIRMED','run_id':rid,'actor':actor,'overall':'INCOMPLETE'}
+                return 0, {'status':'FAULT_CONFIRMED','run_id':rid,'overall':'INCOMPLETE'}
             current = self.store.current(dfd)
             if action == 'status':
                 if current is None: return 0, {'status':'NO_RECEIPT'}
                 record, done = current
                 return 0, {'status':'CLEANUP_RECORDED' if done else 'RECEIPT_PRESENT_UNVERIFIED',
-                           'run_id':record['receipt']['run_id'], 'actor':record['actor'],
+                           'run_id':record['receipt']['run_id'],
                            'same_boot':record['boot_id'] == self.boot()}
             require(current is not None, 'NO_RECEIPT')
             record, done = current
@@ -260,8 +258,8 @@ class Controller:
 
 def main(argv):
     require(os.geteuid() == 0, 'ROOT_REQUIRED')
-    require(len(argv) in (3, 4), 'USAGE')
-    rc, result = Controller(Store(), N03Backend()).execute(argv[1], argv[2], argv[3] if len(argv) == 4 else None)
+    require(len(argv) in (2, 3), 'USAGE')
+    rc, result = Controller(Store(), N03Backend()).execute(argv[1], argv[2] if len(argv) == 3 else None)
     print(json.dumps(result, sort_keys=True))
     return rc
 

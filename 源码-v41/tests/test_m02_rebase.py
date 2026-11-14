@@ -25,8 +25,7 @@ class DispatchTests(unittest.TestCase):
                       mock.patch.object(cli,'m03_action',return_value=13)):
             patch.start(); self.addCleanup(patch.stop)
     def run_action(self,drill,command,rid,state):
-        args=SimpleNamespace(drill=drill,command=command,expect_run_id=rid,n04_version=None,
-                             actor='agent',variant=None)
+        args=SimpleNamespace(drill=drill,command=command,expect_run_id=rid,n04_version=None,variant=None)
         with mock.patch.object(cli,'read_state',return_value=state): return cli.action(args)
     def test_m03_start_and_owned_operations_remain_dispatched(self):
         self.assertEqual(self.run_action('M03','start',None,None),13)

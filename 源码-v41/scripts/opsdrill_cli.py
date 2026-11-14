@@ -186,9 +186,9 @@ def l03_details_valid(details):
         storage_read_bytes=details['storage_read_bytes'],health_before=details['health_before'],health_after=details['health_after'])
 
 
-def event(drill,attempt,kind,result,actor,details=None):
+def event(drill,attempt,kind,result,details=None):
     obj={'drill_id':drill,'attempt_id':attempt,'event':kind,'result':result,
-         'actor':actor,'ts':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+         'ts':datetime.datetime.now(datetime.timezone.utc).isoformat(),
          'boot_id':BOOT_ID.read_text(encoding='ascii').strip(),'monotonic_ns':time.monotonic_ns()}
     if details is not None:
         if drill=='M04':
@@ -261,8 +261,8 @@ def n03_call(action,extra=(),capture=False):
     return protected_n03_call('n03_502.py','8b527cad68557f7294be8580f58923c5e7a1563daf521b44087d19724bed6d5c',action,extra,capture)
 
 
-def c01_call(action,actor,expected=None,capture=False):
-    args=(actor,) if expected is None else (actor,expected)
+def c01_call(action,expected=None,capture=False):
+    args=() if expected is None else (expected,)
     return protected_n03_call('c01_control.py','29b84c493a889ff2ea6b624f23e3e98f6a15096eed5a648e676bed08d928b60a',action,args,capture,directory='c01-v2')
 
 
@@ -564,7 +564,7 @@ def m03_action(args,state,expected):
         if getattr(args,'variant',None) is not None: raise Refused('M03 does not accept a variant')
         if state: raise Refused('existing state requires reset or inspection')
         attempt=allocate_id(drill)
-        event(drill,attempt,'inject','STARTING',args.actor)
+        event(drill,attempt,'inject','STARTING')
         rid=secrets.token_hex(12)
         state={'drill_id':drill,'attempt_id':attempt,'phase':'STARTING','run_id':rid,'m03_version':'mysql-v1'}
         write_state(drill,state)
@@ -575,12 +575,12 @@ def m03_action(args,state,expected):
             observed=m03_response(m03_invoke('check',rid),rid,'check')
             if observed['status']!='FAULT': raise Refused('M03 fault not established')
             state['phase']='ACTIVE'; write_state(drill,state)
-            event(drill,attempt,'inject','PASS',args.actor)
+            event(drill,attempt,'inject','PASS')
             print(json.dumps(observed,sort_keys=True))
             return 0
         except Exception:
             state['phase']='NEEDS_RESET'; write_state(drill,state)
-            event(drill,attempt,'inject','FAIL',args.actor)
+            event(drill,attempt,'inject','FAIL')
             raise
     if args.command=='reset':
         if state and (state['phase'] not in ('STARTING','ACTIVE','NEEDS_RESET') or state.get('run_id')!=expected):
@@ -588,14 +588,14 @@ def m03_action(args,state,expected):
         try:
             result=m03_response(m03_invoke('reset',expected),expected,'reset')
             if state:
-                event(drill,state['attempt_id'],'reset','PASS',args.actor)
+                event(drill,state['attempt_id'],'reset','PASS')
                 os.unlink(state_path(drill))
             print(json.dumps(result,sort_keys=True))
             return 0
         except Exception:
             if state:
                 state['phase']='NEEDS_RESET'; write_state(drill,state)
-                event(drill,state['attempt_id'],'reset','FAIL',args.actor)
+                event(drill,state['attempt_id'],'reset','FAIL')
             raise
     if args.command in ('check','resolve'):
         if not state or state['phase']!='ACTIVE': raise Refused('no active CLI-owned M03 attempt')
@@ -609,12 +609,12 @@ def m03_action(args,state,expected):
                 return 0
             result=m03_response(m03_invoke('check',rid),rid,'check')
             pending=result['status']=='FAULT'
-            event(drill,state['attempt_id'],'check','PENDING' if pending else 'PASS',args.actor)
+            event(drill,state['attempt_id'],'check','PENDING' if pending else 'PASS')
             print(json.dumps(result,sort_keys=True))
             return 1 if pending else 0
         except Exception:
             state['phase']='NEEDS_RESET'; write_state(drill,state)
-            if args.command=='check': event(drill,state['attempt_id'],'check','FAIL',args.actor)
+            if args.command=='check': event(drill,state['attempt_id'],'check','FAIL')
             raise
     # hint and note use the existing generic path, without weakening state checks.
     return m03_other(args,state)
@@ -626,10 +626,10 @@ def m03_other(args,state):
         hint=secure_file(REGISTRY['M03']+'/hints.md')
         if hint.stat().st_size>16384: raise Refused('hints file too large')
         print(hint.read_text(encoding='utf-8'))
-        event('M03',state['attempt_id'],'hint','PASS',args.actor)
+        event('M03',state['attempt_id'],'hint','PASS')
         return 0
     if args.command=='note':
-        event('M03',state['attempt_id'],'diagnosis','PASS',args.actor)
+        event('M03',state['attempt_id'],'diagnosis','PASS')
         print('Diagnosis marker recorded; free-form text is not stored.')
         return 0
     raise Refused('unsupported M03 action')
@@ -696,7 +696,7 @@ def m04_invoke(action,rid,version='synthetic-v1'):
     return obj
 
 
-def m04_event(state,kind,result,actor,verified=False):
+def m04_event(state,kind,result,verified=False):
     version=state['m04_version']; rid=state['run_id']; attempt=state['attempt_id']
     if version not in ('synthetic-v1','synthetic-v2','synthetic-v3','synthetic-v4') or not re.fullmatch(r'[0-9a-f]{16}',rid):
         raise Refused('invalid M04 event identity')
@@ -706,7 +706,7 @@ def m04_event(state,kind,result,actor,verified=False):
         if verified:
             m04_command('check',rid,version)  # re-check protected runtime after the operation
             details['verified_auditor_sha256']=M04_V2_MANIFEST['pitr_audit.py']
-    event('M04',attempt,kind,result,actor,details)
+    event('M04',attempt,kind,result,details)
 
 
 def completed_m04_version(rid):
@@ -751,50 +751,50 @@ def m04_action(args,state,expected):
         write_state(drill,state)
         print(json.dumps({'run_id':rid,'status':'STARTING'}),flush=True)
         try:
-            m04_event(state,'inject','STARTING',args.actor)
+            m04_event(state,'inject','STARTING')
             result=m04_invoke('start',rid,state['m04_version'])
             result=m04_invoke('check',rid,state['m04_version'])
             if result['status']!='FAULT': raise Refused('M04 fault not established')
             state['phase']='ACTIVE'; write_state(drill,state)
-            m04_event(state,'inject','PASS',args.actor,verified=True)
+            m04_event(state,'inject','PASS',verified=True)
             print(json.dumps(result,sort_keys=True)); return 0
         except Exception:
             state['phase']='NEEDS_RESET'; write_state(drill,state)
-            m04_event(state,'inject','FAIL',args.actor)
+            m04_event(state,'inject','FAIL')
             raise
     if args.command=='reset':
         if state and (state['phase'] not in ('STARTING','ACTIVE','NEEDS_RESET') or state.get('run_id')!=expected):
             raise Refused('ambiguous M04 ownership')
         try:
-            if state: m04_event(state,'reset','STARTING',args.actor)
+            if state: m04_event(state,'reset','STARTING')
             result=m04_invoke('reset',expected,state['m04_version'] if state else completed_m04_version(expected))
             if state:
-                m04_event(state,'reset','PASS',args.actor,verified=True)
+                m04_event(state,'reset','PASS',verified=True)
                 os.unlink(state_path(drill))
             print(json.dumps(result,sort_keys=True)); return 0
         except Exception:
             if state:
                 state['phase']='NEEDS_RESET'; write_state(drill,state)
-                m04_event(state,'reset','FAIL',args.actor)
+                m04_event(state,'reset','FAIL')
             raise
     if args.command in ('check','resolve'):
         if not state or state['phase']!='ACTIVE': raise Refused('no active CLI-owned M04 attempt')
         rid=state['run_id']
         try:
             if args.command=='resolve':
-                m04_event(state,'resolve','STARTING',args.actor)
+                m04_event(state,'resolve','STARTING')
                 m04_invoke('resolve',rid,state['m04_version'])
             result=m04_invoke('check',rid,state['m04_version'])
             if args.command=='resolve' and result['status']!='RECOVERED': raise Refused('M04 recovery unconfirmed')
             if args.command=='check':
-                m04_event(state,'check','PENDING' if result['status']=='FAULT' else 'PASS',args.actor,verified=True)
-            else: m04_event(state,'resolve','PASS',args.actor,verified=True)
+                m04_event(state,'check','PENDING' if result['status']=='FAULT' else 'PASS',verified=True)
+            else: m04_event(state,'resolve','PASS',verified=True)
             print(json.dumps(result,sort_keys=True))
             return 1 if result['status']=='FAULT' else 0
         except Exception:
             state['phase']='NEEDS_RESET'; write_state(drill,state)
-            if args.command=='check': m04_event(state,'check','FAIL',args.actor)
-            else: m04_event(state,'resolve','FAIL',args.actor)
+            if args.command=='check': m04_event(state,'check','FAIL')
+            else: m04_event(state,'resolve','FAIL')
             raise
     if args.command in ('hint','note'):
         if not state or state['phase']!='ACTIVE': raise Refused('no active CLI-owned M04 attempt')
@@ -802,9 +802,9 @@ def m04_action(args,state,expected):
             hint=secure_file(REGISTRY['M04']+'/hints.md')
             if hint.stat().st_size>16384: raise Refused('hints file too large')
             print(hint.read_text(encoding='utf-8'))
-            m04_event(state,'hint','PASS',args.actor)
+            m04_event(state,'hint','PASS')
         else:
-            m04_event(state,'diagnosis','PASS',args.actor)
+            m04_event(state,'diagnosis','PASS')
             print('Diagnosis marker recorded; free-form text is not stored.')
         return 0
     raise Refused('unsupported M04 action')
@@ -965,7 +965,7 @@ def m02_action(args,state,expected):
         version=getattr(args,'m02_version',None) or 'legacy'
         command=m02_command('inject',rid) if version=='legacy' else m02_command('inject',rid,version=version)
         attempt=allocate_id('M02')
-        event('M02',attempt,'inject','STARTING',args.actor)
+        event('M02',attempt,'inject','STARTING')
         state={'drill_id':'M02','attempt_id':attempt,'phase':'STARTING','run_id':rid}
         if version!='legacy': state['m02_version']=version
         write_state('M02',state)
@@ -979,7 +979,7 @@ def m02_action(args,state,expected):
                 raise Refused('invalid M02 ownership receipt')
             state['phase']='ACTIVE' if cp.returncode==0 else 'NEEDS_RESET'
             write_state('M02',state)
-            event('M02',attempt,'inject','PASS' if cp.returncode==0 else 'FAIL',args.actor)
+            event('M02',attempt,'inject','PASS' if cp.returncode==0 else 'FAIL')
             return cp.returncode
         except Exception:
             state['phase']='NEEDS_RESET'; write_state('M02',state); raise
@@ -999,13 +999,13 @@ def m02_action(args,state,expected):
         if cp.stderr: print(cp.stderr,end='',file=sys.stderr)
         if args.command=='reset' and state:
             if cp.returncode==0:
-                event('M02',state['attempt_id'],'reset','PASS',args.actor)
+                event('M02',state['attempt_id'],'reset','PASS')
                 os.unlink(state_path('M02'))
             else:
                 state['phase']='NEEDS_RESET'; write_state('M02',state)
-                event('M02',state['attempt_id'],'reset','FAIL',args.actor)
+                event('M02',state['attempt_id'],'reset','FAIL')
         elif args.command=='check' and state:
-            event('M02',state['attempt_id'],'check','PASS' if cp.returncode==0 else 'FAIL',args.actor)
+            event('M02',state['attempt_id'],'check','PASS' if cp.returncode==0 else 'FAIL')
         return cp.returncode
     except Exception:
         if args.command=='reset' and state:
@@ -1014,15 +1014,15 @@ def m02_action(args,state,expected):
 
 
 
-def c01_event(rid,attempt,kind,result,actor):
+def c01_event(rid,attempt,kind,result):
     if not isinstance(rid,str) or not re.fullmatch(r'[0-9a-f]{24}',rid): raise Refused('invalid C01 event run ID')
     if not isinstance(attempt,str) or not re.fullmatch(r'C01-[0-9]{8}-[0-9]{6}',attempt): raise Refused('invalid C01 event attempt')
     allowed={'inject':('STARTING','PASS'),'check':('PENDING','PARTIAL'),
              'resolve':('MITIGATED',),'reset':('PASS',),'hint':('PASS',),'diagnosis':('PASS',)}
-    if kind not in allowed or result not in allowed[kind] or actor not in ('user','agent','unknown'):
+    if kind not in allowed or result not in allowed[kind]:
         raise Refused('invalid C01 event')
     obj={'drill_id':'C01','attempt_id':attempt,'run_id':rid,'event':kind,'result':result,
-         'actor':actor,'ts':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+         'ts':datetime.datetime.now(datetime.timezone.utc).isoformat(),
          'boot_id':BOOT_ID.read_text(encoding='ascii').strip(),'monotonic_ns':time.monotonic_ns()}
     fd=os.open(EVENT_FILE,os.O_WRONLY|os.O_APPEND|os.O_CREAT|os.O_NOFOLLOW|os.O_CLOEXEC,0o600)
     try:
@@ -1049,19 +1049,19 @@ def c01_event(rid,attempt,kind,result,actor):
 
 
 def c01_bounded_check(args):
-    """Assess a completed agent run using its protected finite-window evidence."""
+    """Assess a completed auto run using its protected finite-window evidence."""
     rid=getattr(args,'expect_run_id',None)
     directory=getattr(args,'evidence_dir',None)
     digest=getattr(args,'expected_sha256',None)
-    if (args.actor!='agent' or not isinstance(rid,str) or not re.fullmatch(r'[0-9a-f]{24}',rid)
+    if (not isinstance(rid,str) or not re.fullmatch(r'[0-9a-f]{24}',rid)
             or not isinstance(directory,str) or not isinstance(digest,str) or not re.fullmatch(r'[0-9a-f]{64}',digest)):
-        raise Refused('C01 bounded check needs agent, run ID, evidence directory and digest')
+        raise Refused('C01 bounded check needs auto, run ID, evidence directory and digest')
     if read_state('C01') is not None: raise Refused('C01 run is not cleaned')
-    cp=c01_call('status','agent',capture=True)
+    cp=c01_call('status',capture=True)
     if cp.returncode: raise Refused('C01 cleanup status unavailable')
     try: status=json.loads(cp.stdout,object_pairs_hook=unique_pairs)
     except (TypeError,ValueError): raise Refused('invalid C01 cleanup status')
-    if status!={'status':'CLEANUP_RECORDED','run_id':rid,'actor':'agent','same_boot':True}:
+    if status!={'status':'CLEANUP_RECORDED','run_id':rid,'same_boot':True}:
         raise Refused('C01 cleanup does not match run')
     path=secure_file('scripts/audit_c01_window.py')
     fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC)
@@ -1082,7 +1082,7 @@ def c01_bounded_check(args):
     if cp.returncode: raise Refused('C01 bounded evidence rejected')
     try: result=json.loads(cp.stdout,object_pairs_hook=unique_pairs)
     except (TypeError,ValueError): raise Refused('invalid C01 audit output')
-    if not isinstance(result,dict) or result.get('status')!='BOUNDED_OBSERVATION_PASS' or result.get('run_id')!=rid or result.get('actor')!='agent' or result.get('result_sha256')!=digest:
+    if not isinstance(result,dict) or result.get('status')!='BOUNDED_OBSERVATION_PASS' or result.get('run_id')!=rid or result.get('result_sha256')!=digest:
         raise Refused('C01 audit identity mismatch')
     print(json.dumps(result,sort_keys=True))
     return 0
@@ -1105,29 +1105,29 @@ def c01_action(args):
     state=read_state('C01')
     if command=='start':
         if state: raise Refused('existing C01 CLI state requires inspection')
-        try: preflight=c01_call('status',args.actor,capture=True)
+        try: preflight=c01_call('status',capture=True)
         except subprocess.TimeoutExpired as exc: raise Refused('C01 status timed out') from exc
         if preflight.returncode: raise Refused('C01 status unavailable')
         status=json.loads(preflight.stdout,object_pairs_hook=unique_pairs)
         if status!={'status':'NO_RECEIPT'}:
-            if not isinstance(status,dict) or set(status)!={'status','run_id','actor','same_boot'} or status.get('status')!='CLEANUP_RECORDED' or not isinstance(status.get('run_id'),str) or not re.fullmatch(r'[0-9a-f]{24}',status['run_id']) or status.get('actor') not in ('user','agent','unknown') or type(status.get('same_boot')) is not bool:
+            if not isinstance(status,dict) or set(status)!={'status','run_id','same_boot'} or status.get('status')!='CLEANUP_RECORDED' or not isinstance(status.get('run_id'),str) or not re.fullmatch(r'[0-9a-f]{24}',status['run_id']) or type(status.get('same_boot')) is not bool:
                 raise Refused('existing or unverified C01 receipt requires inspection')
         rid=secrets.token_hex(12)
         attempt=allocate_id('C01')
         state={'drill_id':'C01','attempt_id':attempt,'phase':'STARTING','run_id':rid}
         write_state('C01',state)
         # If recording fails, the backend must not be invoked.
-        c01_event(rid,attempt,'inject','STARTING',args.actor)
+        c01_event(rid,attempt,'inject','STARTING')
         try:
-            cp=c01_call('start',args.actor,rid,capture=True)
+            cp=c01_call('start',rid,capture=True)
             if cp.stderr: print(cp.stderr,end='',file=sys.stderr)
             if cp.returncode:
                 state['phase']='NEEDS_RESET'; write_state('C01',state)
                 return cp.returncode
             result=json.loads(cp.stdout,object_pairs_hook=unique_pairs)
-            if result!={'status':'FAULT_CONFIRMED','run_id':rid,'actor':args.actor,'overall':'INCOMPLETE'}:
+            if result!={'status':'FAULT_CONFIRMED','run_id':rid,'overall':'INCOMPLETE'}:
                 raise Refused('invalid C01 start result')
-            c01_event(rid,attempt,'inject','PASS',args.actor)
+            c01_event(rid,attempt,'inject','PASS')
             state['phase']='ACTIVE'; write_state('C01',state)
             print(cp.stdout,end='')
             return 0
@@ -1140,7 +1140,7 @@ def c01_action(args):
         # A pre-existing or interrupted run without our protected CLI identity
         # remains directly operable by explicit ID, but never gains invented events.
         if command in ('check','resolve','reset'):
-            try: return c01_call(command,args.actor,expected).returncode
+            try: return c01_call(command,expected).returncode
             except subprocess.TimeoutExpired as exc: raise Refused('C01 operation timed out; retain run ID') from exc
         raise Refused('no C01 CLI-owned attempt')
     rid=state['run_id']; attempt=state['attempt_id']
@@ -1148,7 +1148,7 @@ def c01_action(args):
         raise Refused('C01 run ID does not match CLI state')
     if command in ('hint','note'):
         if state['phase']!='ACTIVE': raise Refused('no confirmed C01 attempt')
-        cp=c01_call('status',args.actor,capture=True)
+        cp=c01_call('status',capture=True)
         if cp.returncode: raise Refused('C01 status unavailable')
         status=json.loads(cp.stdout,object_pairs_hook=unique_pairs)
         if not isinstance(status,dict) or status.get('status')!='RECEIPT_PRESENT_UNVERIFIED' or status.get('run_id')!=rid or status.get('same_boot') is not True:
@@ -1157,16 +1157,16 @@ def c01_action(args):
             hint=secure_file('drills/capstone/C01/hints.md')
             if hint.stat().st_size>65536: raise Refused('C01 hint too large')
             print(hint.read_text(encoding='utf-8'))
-            c01_event(rid,attempt,'hint','PASS',args.actor)
+            c01_event(rid,attempt,'hint','PASS')
         else:
             if getattr(args,'kind',None)!='diagnosis': raise Refused('unsupported note kind')
-            c01_event(rid,attempt,'diagnosis','PASS',args.actor)
+            c01_event(rid,attempt,'diagnosis','PASS')
             print('Diagnosis marker recorded; free-form text is not stored.')
         return 0
     if command in ('check','resolve') and state['phase']!='ACTIVE':
         raise Refused('C01 start unconfirmed; inspect or reset the bound run')
     try:
-        cp=c01_call(command,args.actor,rid,capture=True)
+        cp=c01_call(command,rid,capture=True)
         if cp.stderr: print(cp.stderr,end='',file=sys.stderr)
         try: result=json.loads(cp.stdout,object_pairs_hook=unique_pairs)
         except (TypeError,ValueError): result=None
@@ -1177,16 +1177,16 @@ def c01_action(args):
                 observation='RECOVERED_PARTIAL'; event_result='PARTIAL'
             else:
                 raise Refused('C01 check unconfirmed')
-            c01_event(rid,attempt,'check',event_result,args.actor)
+            c01_event(rid,attempt,'check',event_result)
             state['last_check']=observation; write_state('C01',state)
         elif command=='resolve':
             if cp.returncode!=0 or result!={'status':'MITIGATED','run_id':rid}:
                 raise Refused('C01 resolve unconfirmed')
-            c01_event(rid,attempt,'resolve','MITIGATED',args.actor)
+            c01_event(rid,attempt,'resolve','MITIGATED')
         else:
             if cp.returncode!=0 or result!={'status':'CLEANUP_PASS','run_id':rid}:
                 raise Refused('C01 reset unconfirmed')
-            c01_event(rid,attempt,'reset','PASS',args.actor)
+            c01_event(rid,attempt,'reset','PASS')
             os.unlink(state_path('C01'))
             dfd=os.open(STATE_ROOT,os.O_RDONLY|os.O_DIRECTORY|os.O_CLOEXEC)
             try: os.fsync(dfd)
@@ -1244,7 +1244,7 @@ def action(args):
             script_path(drill,'inject')
             attempt=allocate_id(drill)
             # Verify and append to the protected event stream before changing a drill.
-            event(drill,attempt,'inject','STARTING',args.actor)
+            event(drill,attempt,'inject','STARTING')
             state={'drill_id':drill,'attempt_id':attempt,'phase':'STARTING'}
             if drill=='N04':
                 state['run_id']=os.urandom(12).hex(); state['n04_version']='recovery-v2'
@@ -1352,7 +1352,7 @@ def action(args):
             state['phase']='ACTIVE' if rc==0 else 'NEEDS_RESET'
             write_state(drill,state)
             proven=(drill!='N04' or (rc==0 and receipt['initial']['fault_proven']))
-            event(drill,attempt,'inject','PASS' if rc==0 and proven else 'FAIL',args.actor)
+            event(drill,attempt,'inject','PASS' if rc==0 and proven else 'FAIL')
             return 2 if rc==0 and not proven else rc
         if args.command=='check':
             # A clean environment is not a passed exercise: only a recorded,
@@ -1407,8 +1407,8 @@ def action(args):
                 rc=invoke(drill,'check'); pending=False
             result=('PASS' if rc==0 else 'PARTIAL' if partial else 'PENDING' if pending else 'FAIL') if drill=='L03' else ('PASS' if rc==0 else 'PENDING' if pending else 'FAIL')
             if state:
-                if drill=='L03' and result=='PASS': event(drill,state['attempt_id'],'check',result,args.actor,details)
-                else: event(drill,state['attempt_id'],'check',result,args.actor)
+                if drill=='L03' and result=='PASS': event(drill,state['attempt_id'],'check',result,details)
+                else: event(drill,state['attempt_id'],'check',result)
             return rc
         if args.command=='resolve':
             if drill not in ('L04','N01','N04','L02') or not state or state['phase']!='ACTIVE':
@@ -1443,11 +1443,11 @@ def action(args):
                 except Refused: rc=2
                 if state:
                     if rc==0:
-                        event(drill,state['attempt_id'],'reset','PASS',args.actor)
+                        event(drill,state['attempt_id'],'reset','PASS')
                         os.unlink(state_path(drill))
                     else:
                         state['phase']='NEEDS_RESET'; write_state(drill,state)
-                        event(drill,state['attempt_id'],'reset','FAIL',args.actor)
+                        event(drill,state['attempt_id'],'reset','FAIL')
                 return rc
             except Exception:
                 if state:
@@ -1461,11 +1461,11 @@ def action(args):
                 rc=invoke(drill,'reset',(expected,))
                 if state:
                     if rc==0:
-                        event(drill,state['attempt_id'],'reset','PASS',args.actor)
+                        event(drill,state['attempt_id'],'reset','PASS')
                         os.unlink(state_path(drill))
                     else:
                         state['phase']='NEEDS_RESET'; write_state(drill,state)
-                        event(drill,state['attempt_id'],'reset','FAIL',args.actor)
+                        event(drill,state['attempt_id'],'reset','FAIL')
                 return rc
             except Exception:
                 if state:
@@ -1481,11 +1481,11 @@ def action(args):
                 rc=invoke(drill,'reset',(expected,))
                 if rc==0:
                     l04_mark_done(expected)
-                    event(drill,state['attempt_id'],'reset','PASS',args.actor)
+                    event(drill,state['attempt_id'],'reset','PASS')
                     os.unlink(state_path(drill))
                 else:
                     state['phase']='NEEDS_RESET'; write_state(drill,state)
-                    event(drill,state['attempt_id'],'reset','FAIL',args.actor)
+                    event(drill,state['attempt_id'],'reset','FAIL')
                 return rc
             except Exception:
                 state['phase']='NEEDS_RESET'; write_state(drill,state); raise
@@ -1495,17 +1495,17 @@ def action(args):
                     clean=l01_clean() if drill=='L01' else n03_clean() if drill=='N03' else n02_clean() if drill=='N02' else l02_clean(state.get('l02_version','legacy') if state else 'legacy') if drill=='L02' else m01_clean()
                     if clean!=0: raise Refused('ambiguous ownership; inspect the drill directly')
                     if state:
-                        event(drill,state['attempt_id'],'reset','CLEAN',args.actor)
+                        event(drill,state['attempt_id'],'reset','CLEAN')
                         os.unlink(state_path(drill))
                     return 0
                 extra=l01_args(state) if drill=='L01' else (state['run_id'],)
                 rc=invoke(drill,'reset',extra,l02_version=state.get('l02_version','legacy')) if drill=='L02' else invoke(drill,'reset',extra)
                 if rc==0:
-                    event(drill,state['attempt_id'],'reset','PASS',args.actor)
+                    event(drill,state['attempt_id'],'reset','PASS')
                     os.unlink(state_path(drill))
                 else:
                     state['phase']='NEEDS_RESET'; write_state(drill,state)
-                    event(drill,state['attempt_id'],'reset','FAIL',args.actor)
+                    event(drill,state['attempt_id'],'reset','FAIL')
                 return rc
             if drill=='L03' and (not state or state['phase']!='ACTIVE'):
                 # Do not stop or delete anything without a receipt. The L03
@@ -1513,7 +1513,7 @@ def action(args):
                 rc=invoke(drill,'check')
                 if rc!=0: raise Refused('ambiguous ownership; inspect the drill directly')
                 if state:
-                    event(drill,state['attempt_id'],'reset','CLEAN',args.actor)
+                    event(drill,state['attempt_id'],'reset','CLEAN')
                     os.unlink(state_path(drill))
                 return 0
             if not state: raise Refused('no CLI-owned attempt; inspect the drill directly')
@@ -1521,26 +1521,26 @@ def action(args):
                 raise Refused('ambiguous ownership; inspect the drill directly before cleanup')
             rc=invoke(drill,'reset',(state['run_id'],state['unit']))
             if rc==0:
-                event(drill,state['attempt_id'],'reset','PASS',args.actor)
+                event(drill,state['attempt_id'],'reset','PASS')
                 os.unlink(state_path(drill))
                 dfd=os.open(STATE_ROOT,os.O_RDONLY|os.O_DIRECTORY|os.O_CLOEXEC)
                 try: os.fsync(dfd)
                 finally: os.close(dfd)
-                event(drill,state['attempt_id'],'reset','CLEAN',args.actor)
+                event(drill,state['attempt_id'],'reset','CLEAN')
             else:
                 state['phase']='NEEDS_RESET'; write_state(drill,state)
-                event(drill,state['attempt_id'],'reset','FAIL',args.actor)
+                event(drill,state['attempt_id'],'reset','FAIL')
             return rc
         if not state or state['phase']!='ACTIVE': raise Refused('no active CLI-owned attempt')
         if args.command=='hint':
             hint=secure_file(REGISTRY[drill]+'/hints.md')
             if hint.stat().st_size>16384: raise Refused('hints file too large')
             print(hint.read_text(encoding='utf-8'))
-            event(drill,state['attempt_id'],'hint','PASS',args.actor)
+            event(drill,state['attempt_id'],'hint','PASS')
             return 0
         if args.command=='note':
             # Do not store free-form text, which can contain credentials or private data.
-            event(drill,state['attempt_id'],'diagnosis','PASS',args.actor)
+            event(drill,state['attempt_id'],'diagnosis','PASS')
             print('Diagnosis marker recorded; free-form text is not stored.')
             return 0
         raise Refused('unsupported action')
@@ -1552,7 +1552,7 @@ def main(argv=None):
     sub=p.add_subparsers(dest='command',required=True)
     sub.add_parser('list'); sub.add_parser('status'); sub.add_parser('report')
     for name in ('start','check','resolve','reset','hint','note'):
-        s=sub.add_parser(name); s.add_argument('drill'); s.add_argument('--actor',choices=('user','agent','unknown'),default='unknown')
+        s=sub.add_parser(name); s.add_argument('drill');
         if name=='start': s.add_argument('--variant',choices=('inode','deleted-open','502','504'))
         if name in ('check','resolve','reset'): s.add_argument('--expect-run-id')
         if name=='check':

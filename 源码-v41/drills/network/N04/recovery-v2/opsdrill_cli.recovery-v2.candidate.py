@@ -130,9 +130,9 @@ def write_state(drill,obj):
         if os.path.exists(path): os.unlink(path)
 
 
-def event(drill,attempt,kind,result,actor):
+def event(drill,attempt,kind,result):
     obj={'drill_id':drill,'attempt_id':attempt,'event':kind,'result':result,
-         'actor':actor,'ts':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+         'ts':datetime.datetime.now(datetime.timezone.utc).isoformat(),
          'boot_id':BOOT_ID.read_text(encoding='ascii').strip(),'monotonic_ns':time.monotonic_ns()}
     fd=os.open(EVENT_FILE,os.O_WRONLY|os.O_APPEND|os.O_CREAT|os.O_NOFOLLOW|os.O_CLOEXEC,0o600)
     try:
@@ -513,7 +513,7 @@ def action(args):
             script_path(drill,'inject')
             attempt=allocate_id(drill)
             # Verify and append to the protected event stream before changing a drill.
-            event(drill,attempt,'inject','STARTING',args.actor)
+            event(drill,attempt,'inject','STARTING')
             state={'drill_id':drill,'attempt_id':attempt,'phase':'STARTING'}
             if drill=='N04':
                 state['run_id']=os.urandom(12).hex(); state['n04_version']='recovery-v2'
@@ -615,7 +615,7 @@ def action(args):
             state['phase']='ACTIVE' if rc==0 else 'NEEDS_RESET'
             write_state(drill,state)
             proven=(drill!='N04' or (rc==0 and receipt['initial']['fault_proven']))
-            event(drill,attempt,'inject','PASS' if rc==0 and proven else 'FAIL',args.actor)
+            event(drill,attempt,'inject','PASS' if rc==0 and proven else 'FAIL')
             return 2 if rc==0 and not proven else rc
         if args.command=='check':
             # A clean environment is not a passed exercise: only a recorded,
@@ -657,7 +657,7 @@ def action(args):
             else:
                 rc=invoke(drill,'check'); pending=False
             result='PASS' if rc==0 else 'PENDING' if pending else 'FAIL'
-            if state: event(drill,state['attempt_id'],'check',result,args.actor)
+            if state: event(drill,state['attempt_id'],'check',result)
             return rc
         if args.command=='resolve':
             if drill not in ('L04','N01','N04') or not state or state['phase']!='ACTIVE':
@@ -690,11 +690,11 @@ def action(args):
                 except Refused: rc=2
                 if state:
                     if rc==0:
-                        event(drill,state['attempt_id'],'reset','PASS',args.actor)
+                        event(drill,state['attempt_id'],'reset','PASS')
                         os.unlink(state_path(drill))
                     else:
                         state['phase']='NEEDS_RESET'; write_state(drill,state)
-                        event(drill,state['attempt_id'],'reset','FAIL',args.actor)
+                        event(drill,state['attempt_id'],'reset','FAIL')
                 return rc
             except Exception:
                 if state:
@@ -708,11 +708,11 @@ def action(args):
                 rc=invoke(drill,'reset',(expected,))
                 if state:
                     if rc==0:
-                        event(drill,state['attempt_id'],'reset','PASS',args.actor)
+                        event(drill,state['attempt_id'],'reset','PASS')
                         os.unlink(state_path(drill))
                     else:
                         state['phase']='NEEDS_RESET'; write_state(drill,state)
-                        event(drill,state['attempt_id'],'reset','FAIL',args.actor)
+                        event(drill,state['attempt_id'],'reset','FAIL')
                 return rc
             except Exception:
                 if state:
@@ -728,11 +728,11 @@ def action(args):
                 rc=invoke(drill,'reset',(expected,))
                 if rc==0:
                     l04_mark_done(expected)
-                    event(drill,state['attempt_id'],'reset','PASS',args.actor)
+                    event(drill,state['attempt_id'],'reset','PASS')
                     os.unlink(state_path(drill))
                 else:
                     state['phase']='NEEDS_RESET'; write_state(drill,state)
-                    event(drill,state['attempt_id'],'reset','FAIL',args.actor)
+                    event(drill,state['attempt_id'],'reset','FAIL')
                 return rc
             except Exception:
                 state['phase']='NEEDS_RESET'; write_state(drill,state); raise
@@ -742,17 +742,17 @@ def action(args):
                     clean=l01_clean() if drill=='L01' else n03_clean() if drill=='N03' else n02_clean() if drill=='N02' else l02_clean() if drill=='L02' else m01_clean()
                     if clean!=0: raise Refused('ambiguous ownership; inspect the drill directly')
                     if state:
-                        event(drill,state['attempt_id'],'reset','CLEAN',args.actor)
+                        event(drill,state['attempt_id'],'reset','CLEAN')
                         os.unlink(state_path(drill))
                     return 0
                 extra=l01_args(state) if drill=='L01' else (state['run_id'],)
                 rc=invoke(drill,'reset',extra)
                 if rc==0:
-                    event(drill,state['attempt_id'],'reset','PASS',args.actor)
+                    event(drill,state['attempt_id'],'reset','PASS')
                     os.unlink(state_path(drill))
                 else:
                     state['phase']='NEEDS_RESET'; write_state(drill,state)
-                    event(drill,state['attempt_id'],'reset','FAIL',args.actor)
+                    event(drill,state['attempt_id'],'reset','FAIL')
                 return rc
             if drill=='L03' and (not state or state['phase']!='ACTIVE'):
                 # Do not stop or delete anything without a receipt. The L03
@@ -760,7 +760,7 @@ def action(args):
                 rc=invoke(drill,'check')
                 if rc!=0: raise Refused('ambiguous ownership; inspect the drill directly')
                 if state:
-                    event(drill,state['attempt_id'],'reset','CLEAN',args.actor)
+                    event(drill,state['attempt_id'],'reset','CLEAN')
                     os.unlink(state_path(drill))
                 return 0
             if not state: raise Refused('no CLI-owned attempt; inspect the drill directly')
@@ -768,22 +768,22 @@ def action(args):
                 raise Refused('ambiguous ownership; inspect the drill directly before cleanup')
             rc=invoke(drill,'reset',(state['run_id'],state['unit']))
             if rc==0:
-                event(drill,state['attempt_id'],'reset','PASS',args.actor)
+                event(drill,state['attempt_id'],'reset','PASS')
                 os.unlink(state_path(drill))
             else:
                 state['phase']='NEEDS_RESET'; write_state(drill,state)
-                event(drill,state['attempt_id'],'reset','FAIL',args.actor)
+                event(drill,state['attempt_id'],'reset','FAIL')
             return rc
         if not state or state['phase']!='ACTIVE': raise Refused('no active CLI-owned attempt')
         if args.command=='hint':
             hint=secure_file(REGISTRY[drill]+'/hints.md')
             if hint.stat().st_size>16384: raise Refused('hints file too large')
             print(hint.read_text(encoding='utf-8'))
-            event(drill,state['attempt_id'],'hint','PASS',args.actor)
+            event(drill,state['attempt_id'],'hint','PASS')
             return 0
         if args.command=='note':
             # Do not store free-form text, which can contain credentials or private data.
-            event(drill,state['attempt_id'],'diagnosis','PASS',args.actor)
+            event(drill,state['attempt_id'],'diagnosis','PASS')
             print('Diagnosis marker recorded; free-form text is not stored.')
             return 0
         raise Refused('unsupported action')
@@ -795,7 +795,7 @@ def main(argv=None):
     sub=p.add_subparsers(dest='command',required=True)
     sub.add_parser('list'); sub.add_parser('status'); sub.add_parser('report')
     for name in ('start','check','resolve','reset','hint','note'):
-        s=sub.add_parser(name); s.add_argument('drill'); s.add_argument('--actor',choices=('user','agent','unknown'),default='unknown')
+        s=sub.add_parser(name); s.add_argument('drill');
         if name=='start': s.add_argument('--variant',choices=('inode','deleted-open','502','504'))
         if name in ('check','resolve','reset'): s.add_argument('--expect-run-id')
         if name=='reset': s.add_argument('--n04-version',choices=('legacy','recovery-v2'))

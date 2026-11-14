@@ -23,10 +23,10 @@ sys.path[:0]=[str(ROOT),str(ROOT/'continuation')]
 import m04_controller as ctl
 import mysql_live_identity as live
 ENV={'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','HOME':'/nonexistent','LC_ALL':'C','MYSQL_HISTFILE':'/dev/null'}
-if sys.argv[1:] != ['--apply','--actor','agent']:
-    raise SystemExit('Explicit --apply --actor agent required; run a verified root-protected copy')
+if sys.argv[1:] != ['--apply']:
+    raise SystemExit('Explicit --apply required; run a verified root-protected copy')
 ctl.setup();rid=secrets.token_hex(8);directory=ctl.BASE/rid;directory.mkdir(mode=0o700);lock=ctl.locked(directory)
-boot,now=ctl.boot_context();state={'version':1,'run_id':rid,'phase':'PREPARING','primary_uuid':live.SENTINEL,'uuids':{},'attempted':[],'boot_id':boot,'deadline_boottime':now+900,'business_phase':'TEST_ONLY','candidate_phase':'STARTING','actor':'agent'}
+boot,now=ctl.boot_context();state={'version':1,'run_id':rid,'phase':'PREPARING','primary_uuid':live.SENTINEL,'uuids':{},'attempted':[],'boot_id':boot,'deadline_boottime':now+900,'business_phase':'TEST_ONLY','candidate_phase':'STARTING'}
 ctl.save(directory,state);print('isolated cross-db run',rid,flush=True)
 bound=False;clean=False
 def phase(value):state['candidate_phase']=value;ctl.save(directory,state)
@@ -123,7 +123,7 @@ try:
         need(snapshot('target')==t1,'PITR differs from before-delete state')
         need(query('target','SELECT id,value FROM cross_a.items ORDER BY id;')==b'1\t101\n2\t200\n' and query('target','SELECT id,value FROM cross_b.items ORDER BY id;')==b'1\t101\n2\t200\n','target rows mismatch')
         phase('STOPPING');live.reset(rid,state,directory);clean=True;phase('CROSS_DB_VERIFIED_STOPPED')
-        result={'actor':'agent','run_id':rid,'status':'PASS','scope':'two synthetic databases, same transaction, one binlog; isolated socket-only, GTID OFF, root restore/replay; not integrated CLI or production snapshot','start':start,'stop':stop,'end':end,'identities':identities,'baseline':baseline,'before_delete':t1,'restored':t1,'backup_sha256':state['backup_sha256'],'binlog_sha256':state['binlog_sha256'],'replay_sha256':state['replay_sha256'],'auditor_sha256':state['auditor_sha256']}
+        result={'run_id':rid,'status':'PASS','scope':'two synthetic databases, same transaction, one binlog; isolated socket-only, GTID OFF, root restore/replay; not integrated CLI or production snapshot','start':start,'stop':stop,'end':end,'identities':identities,'baseline':baseline,'before_delete':t1,'restored':t1,'backup_sha256':state['backup_sha256'],'binlog_sha256':state['binlog_sha256'],'replay_sha256':state['replay_sha256'],'auditor_sha256':state['auditor_sha256']}
         p=directory/'cross-db-result.json';fd=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
         with os.fdopen(fd,'w') as f:json.dump(result,f,sort_keys=True);f.write('\n');f.flush();os.fsync(f.fileno())
         print('cross-db PITR verified',rid,flush=True)
