@@ -40,6 +40,6 @@ sudo bin/opsdrill reset N02 --actor user --expect-run-id RUN_ID
 
 ## 已验证范围与参考
 
-2026-11-12 在 Rocky Linux 恢复副本中由 `actor=agent` 完成过故障、修复、重复复位和 watchdog 验证；另一次对默认命名空间的网卡、地址、路由、nft 和部分网络参数作前中后摘要比较，记录及排除项见本目录 README。该结果不代表用户本人已练习，也不证明所有异常中断或跨重启恢复。
+2026-11-12 在 Rocky Linux 恢复副本中由 `actor=agent` 完成过故障、修复、重复复位和 watchdog 验证；另一次对默认命名空间的网卡、地址、路由、nft 和部分网络参数作前中后摘要比较，记录及排除项见本目录 README。该结果不代表人工已练习，也不证明所有异常中断或跨重启恢复。
 
 参考：[Linux network namespaces 手册](https://man7.org/linux/man-pages/man7/network_namespaces.7.html)、[ip-netns 手册](https://man7.org/linux/man-pages/man8/ip-netns.8.html)、[Red Hat Enterprise Linux 9 防火墙与数据包过滤](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/epub/configuring_firewalls_and_packet_filters/configuring-destination-nat-using-nftables_configuring-nat-using-nftables)。

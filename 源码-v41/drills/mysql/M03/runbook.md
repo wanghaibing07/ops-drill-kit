@@ -10,9 +10,9 @@ CLI 使用独立的 socket-only MySQL 双实例和合成账号，不修改主业
 
 [MySQL 8.4：连接数耗尽](https://dev.mysql.com/doc/refman/8.4/en/too-many-connections.html)。
 
-## 隔离应用就绪联动（2026-11-13，代理）
+## 隔离应用就绪联动（2026-11-13）
 
-新机使用实际 FastAPI 就绪处理器和临时进程，在内存中将连接工厂指向本轮独立合成 MySQL。代理实测连接耗尽时 MySQL 返回 1040、隔离应用的 `/ready` 返回 503；释放连接后，同一应用进程与同一连接池的 `/ready` 返回 200。故障窗口工厂错误计数增加 1，恢复窗口无新增。CLI 同轮复位通过；已独立复核进程退出、事件均为 `actor=agent`、现有业务 readiness 为 200。结果位于 `/var/backups/opsdrill/M03/app-readiness-1c3373e7bbca236d/result.json`，SHA256 为 `5b32092ee6631cd1bf65ddae1570344a9f6a213ac55c19e2c9f159335aa3d206`。
+新机使用实际 FastAPI 就绪处理器和临时进程，在内存中将连接工厂指向本轮独立合成 MySQL。实测连接耗尽时 MySQL 返回 1040、隔离应用的 `/ready` 返回 503；释放连接后，同一应用进程与同一连接池的 `/ready` 返回 200。故障窗口工厂错误计数增加 1，恢复窗口无新增。CLI 同轮复位通过；已独立复核进程退出、事件均为 `actor=agent`、现有业务 readiness 为 200。结果位于 `/var/backups/opsdrill/M03/app-readiness-1c3373e7bbca236d/result.json`，SHA256 为 `5b32092ee6631cd1bf65ddae1570344a9f6a213ac55c19e2c9f159335aa3d206`。
 
 `tests/contract/M03-app-readiness.py` 是这次通过实测的入口，配套 `m03-api-proxy.py` 和 `m03-api-probe-server.py`。三个文件须先随项目可信副本放在 root 控制、其他用户不可写的目录中，独立核对入口 SHA256 `2eee85117406bfb1c5b5caf95f2e1efd0f5cb578acc605d169a8d5914439e2fe` 和项目来源后，以 root 执行：
 

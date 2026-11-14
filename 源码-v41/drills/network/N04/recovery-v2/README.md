@@ -13,7 +13,7 @@ CLI 基线：上级目录 `opsdrill_cli.n04.candidate.py`，原始字节 SHA-256
 
 ## 将来交接使用提示
 
-在未来经授权的隔离 VM 中，独立审阅和验证安装器及源目录后，安装器接口为 `/usr/bin/python3 -I -B install_n04_v2.py REVIEWED_SOURCE_DIR`；它只安装新版控制器和 worker，不替换 CLI。CLI 替换/合并和部署应由主代理单独审核实施。原始字节必须不变，换行转换会导致摘要验证失败。需要恢复启动中断时，先从 root 控制的 CLI N04 状态获取预写的 ID；以新版 CLI 的 `reset N04 --expect-run-id ID` 走同身份接续。也可由审核者使用新版控制器 `reconcile ID` 诊断，但成功仅证明当时的活体归属，之后仍须同 ID reset。若状态已删除而需重试新版已完成的 reset，附加 `--n04-version recovery-v2`。不得对未知版本盲目尝试清理。
+在未来经授权的隔离 VM 中，独立审阅和验证安装器及源目录后，安装器接口为 `/usr/bin/python3 -I -B install_n04_v2.py REVIEWED_SOURCE_DIR`；它只安装新版控制器和 worker，不替换 CLI。CLI 替换/合并和部署应另行审核实施。原始字节必须不变，换行转换会导致摘要验证失败。需要恢复启动中断时，先从 root 控制的 CLI N04 状态获取预写的 ID；以新版 CLI 的 `reset N04 --expect-run-id ID` 走同身份接续。也可由审核者使用新版控制器 `reconcile ID` 诊断，但成功仅证明当时的活体归属，之后仍须同 ID reset。若状态已删除而需重试新版已完成的 reset，附加 `--n04-version recovery-v2`。不得对未知版本盲目尝试清理。
 
 受限本地测试：在本目录运行 `python -X utf8 -B -m unittest -v test_recovery_v2`。这些是 mock/临时目录测试，没有运行 Linux/systemd、socket 对端、namespace 或真实安装；旧基线测试通过也不代表新版 VM 集成已通过。需要未来由唯一 VM 执行者按实际系统验证 systemd 属性格式、身份握手、断点与拒绝路径、历史凭证兼容性以及 namespace 引用边界。
 

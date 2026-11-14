@@ -2,7 +2,7 @@
 
 ## 2026-11-13 新机实测与当前边界
 
-在独立空磁盘安装的 Rocky Linux 9.8 虚拟机上，代理通过几段受控续接完成了 MySQL 8.4.13 初始化、业务栈部署和 500000 条订单导入。独立检查确认 500 个商户、500000 条订单、商户 88 的 25000 条订单，重复订单号和孤儿订单均为 0，11 个导入批次记为 DONE；基线检查通过。L01 的 inode 耗尽与 deleted-open 两种变体完成注入、修复、检查及清理，演练操作者为 agent。
+在独立空磁盘安装的 Rocky Linux 9.8 虚拟机上，通过几段受控续接完成了 MySQL 8.4.13 初始化、业务栈部署和 500000 条订单导入。独立检查确认 500 个商户、500000 条订单、商户 88 的 25000 条订单，重复订单号和孤儿订单均为 0，11 个导入批次记为 DONE；基线检查通过。L01 的 inode 耗尽与 deleted-open 两种变体完成注入、修复、检查及清理，演练操作者为 agent。
 
 这次新机安装中，原候选先后遇到 MySQL 仓库默认版本、空日志文件、Python 导入作用域和演练状态目录缺失问题；旧失败记录保留，通过核实现场和单独账本续接。现在新增的 `bootstrap.py`、`orchestrate.py` 和管理员初始化修复已做针对性测试，但**修复后的完整一键从零部署尚未在另一台干净系统实测**，不能将本次多段续接说成一键部署成功。以下历史记录保留当时的证据范围，若进度描述与本节不同，以本节为准。
 
@@ -66,7 +66,7 @@ MySQL 客户端使用 `--defaults-file`，并在命令行强制 `localhost`、SO
 
 `baseline/isolated_mysql_probe.py` 是独立试验入口，**不是 deploy，也不能用于现有业务 MySQL**。它复用已安装的 root 控制 M04 v2 隔离实例控制器，创建本轮两个 socket-only MySQL 实例，只向本轮 target 写入；不使用业务 socket、账号或库。它使用固定摘要验证原有 SQL 和 11 个不重叠数据段，以严格检查的有界 INSERT 批次导入，不启用 `local_infile`。参考用的 50 万条和 5 万条文件与分段重叠，不作为额外批次导入。目标是原 SQL 固定的 `orderguard` 和 `orderguard_stage3` 名称，但只存在于本轮隔离实例。
 
-2026-11-13 代理 run `fbbe186e7cd0bc17` 在恢复副本上运行：原始三个 SQL 初始化完成，11 段共导入 500000 行，订单数和唯一数均为 500000，商户 88 为 25000；按自增 ID 顺序从数据库导出 TSV 的 8 个数据字段（不含自增 ID）的 SHA256 与固定 50 万参考摘要一致。隔离实例在导入前后 `local_infile=OFF`；本轮实例按绑定身份停止，数据目录和受保护状态保留于 `/var/tmp/opsdrill-m04-run-fbbe186e7cd0bc17` 和 `/var/tmp/opsdrill-m04-controller/fbbe186e7cd0bc17`。试验后现有业务库 `local_infile=OFF`，MySQL、Nginx、API 活动，`ready=200`，SELinux Enforcing。
+2026-11-13 run `fbbe186e7cd0bc17` 在恢复副本上运行：原始三个 SQL 初始化完成，11 段共导入 500000 行，订单数和唯一数均为 500000，商户 88 为 25000；按自增 ID 顺序从数据库导出 TSV 的 8 个数据字段（不含自增 ID）的 SHA256 与固定 50 万参考摘要一致。隔离实例在导入前后 `local_infile=OFF`；本轮实例按绑定身份停止，数据目录和受保护状态保留于 `/var/tmp/opsdrill-m04-run-fbbe186e7cd0bc17` 和 `/var/tmp/opsdrill-m04-controller/fbbe186e7cd0bc17`。试验后现有业务库 `local_infile=OFF`，MySQL、Nginx、API 活动，`ready=200`，SELinux Enforcing。
 
 试验脚本的 SHA256 为 `eb204479ec2916101fe4b959f3f05d37f50dd7180e4a777ea1c8077b8fec786c`。在作为 root 运行前，必须先将它复制到 root 控制、不可由普通用户修改的暂存路径，独立核对脚本摘要及所有祖先目录，再以 `python3 -I -B <受保护目录>/isolated_mysql_probe.py` 运行；**不能直接以 root 执行 devops 可写的项目文件**。脚本只使用绑定到本轮身份的隔离实例；会创建保留的 MySQL 数据目录并要求 `/var/tmp` 至少 4 GiB 可用空间。
 
@@ -76,13 +76,13 @@ MySQL 客户端使用 `--defaults-file`，并在命令行强制 `localhost`、SO
 
 ### 隔离实例事务失败验证
 
-代理 run `69a59012a3329201` 在另一套独立 MySQL 实例中，先确认目标表为 InnoDB，再于事务内写入前 1000 条并故意执行不存在的表查询；MySQL 客户端返回失败并断开后，另建连接确认订单表为 0。随后仅在确认回滚后重新导入这 1000 条，确认数量为 1000、隔离实例 `local_infile=OFF`，并按本轮身份停止两个实例，保留数据及状态。业务服务检查仍为活动且 `ready=200`。
+run `69a59012a3329201` 在另一套独立 MySQL 实例中，先确认目标表为 InnoDB，再于事务内写入前 1000 条并故意执行不存在的表查询；MySQL 客户端返回失败并断开后，另建连接确认订单表为 0。随后仅在确认回滚后重新导入这 1000 条，确认数量为 1000、隔离实例 `local_infile=OFF`，并按本轮身份停止两个实例，保留数据及状态。业务服务检查仍为活动且 `ready=200`。
 
 重现入口 `baseline/isolated_mysql_rollback_probe.py` 的 SHA256 为 `d3b06b8e9d7a6f64988ee37a42662712c00efd00fd0b0c8c5c3d27b2873a9676`，须按上节相同的 root 受保护暂存及摘要核验方式运行。此测试是 SQL 语句错误后连接关闭导致的事务回滚；不是 SIGKILL、断电、DDL 中断或提交成功后状态未落盘测试。InnoDB 回滚后自增序列可能出现空缺，不能由此假设重试后的 ID 与首次完全一致。
 
 ### 提交后账本未更新的受控实验
 
-代理 run `9544b929c2f2a7d9` 在独立实例中持久化首批“进行中”记录，启动子进程将 1000 条写入并提交；子进程随后直接退出，没有修改该记录。仍在运行的父进程读取保护状态、核对本轮实例身份，然后检查表内行数和按 ID 顺序导出的 8 个数据字段摘要，识别出数据库匹配“本批已提交”的内容，未重新导入。本轮实例按身份停止并保留资源，现有服务保持活动且 `ready=200`。
+run `9544b929c2f2a7d9` 在独立实例中持久化首批“进行中”记录，启动子进程将 1000 条写入并提交；子进程随后直接退出，没有修改该记录。仍在运行的父进程读取保护状态、核对本轮实例身份，然后检查表内行数和按 ID 顺序导出的 8 个数据字段摘要，识别出数据库匹配“本批已提交”的内容，未重新导入。本轮实例按身份停止并保留资源，现有服务保持活动且 `ready=200`。
 
 `baseline/db_journal.py` 只做保守分类：要求调用方独立核对实例身份，并提供可信来源数据算出的批次前后摘要；只有行数与对应摘要同时匹配才分别报告匹配批次前或批次后，否则要求检查。它不会读数据库、持久化状态或自动重试。重现入口 `baseline/isolated_mysql_commit_gap_probe.py` 的 SHA256 为 `7744967bbc82feb111b82b4d5c70bd6ca2ae9c7957db5987dd0f67490cf0ccd1`；必须按上节受保护暂存要求执行。
 
@@ -92,7 +92,7 @@ MySQL 客户端使用 `--defaults-file`，并在命令行强制 `localhost`、SO
 
 `baseline/isolated_mysql_probe_v2.py` 在原试验上增加批次记录：提交前持久化本段边界、输入 SHA 和此前/此后连续数据前缀 SHA；提交、无警告且行数检查后，写入已确认批次并清除进行中记录。写入仍通过受保护控制器状态文件的原子替换和目录 fsync 完成。若提交完成但记录尚未更新，进行中记录保留，不能据此盲目重跑；需先确认实例身份并核对实际数据。计数与无警告本身不等于全量内容核验，完整流程末尾仍要求八字段全量摘要匹配。
 
-代理 run `e5656e27910dbc2a` 使用仅运行首批的测试变体，真实导入 1000 条并检查受保护状态中已记录一个完整批次、无进行中批次，随后按身份停止实例并保留现场。业务服务活动、`ready=200`。这是新版**单批**实测；新版的完整 11 批流程及中断自动恢复尚未实测，`baseline/deploy` 也尚未接入它。此前 50 万行完整结果来自原版。
+run `e5656e27910dbc2a` 使用仅运行首批的测试变体，真实导入 1000 条并检查受保护状态中已记录一个完整批次、无进行中批次，随后按身份停止实例并保留现场。业务服务活动、`ready=200`。这是新版**单批**实测；新版的完整 11 批流程及中断自动恢复尚未实测，`baseline/deploy` 也尚未接入它。此前 50 万行完整结果来自原版。
 
 新版完整入口 SHA256：`25d578ff3b9d729680775acb749964d99fa3be3b25a5f7fd8d52d0ac72a32715`；单批试验入口 `baseline/isolated_mysql_ledger_test.py` SHA256：`9eb9df6b5af9d62e718f325f359ca5c537c70c172b6e79bc5690b5ea201a1d9a`。均需按前述要求放入 root 控制目录、独立核对摘要后运行。
 
@@ -100,19 +100,19 @@ MySQL 客户端使用 `--defaults-file`，并在命令行强制 `localhost`、SO
 
 `baseline/reconcile_mysql_import.py <run_id>` 读取 v2 的受保护记录，不修改账本、不续传、不停止实例。它要求 VMware 实验标记、同一启动周期、正在运行且身份可验证的本轮 socket-only MySQL、排他锁、完整且与固定输入摘要一致的批次账本；再以一致性快照读取行数及 8 个数据字段的有序摘要。只有与当前批次前或批次后的数量和摘要均一致时，分别输出 `MATCHES_BEFORE_BATCH` 或 `MATCHES_AFTER_BATCH`；其他情况返回 `NEEDS_INSPECTION`。结果只是该一致性快照的观察，不授权直接重试：`MATCHES_BEFORE_BATCH` 不能排除另一个尚未提交的事务或孤儿导入进程稍后提交，`MATCHES_AFTER_BATCH` 也不单独证明写入者身份。继续之前还需证明旧工作进程及其子进程均已退出并持有排他控制；当前工具尚未提供这一证明。读取 SQL 和打开锁文件仍可能产生正常数据库或系统审计记录。
 
-代理 run `8064c776dddb149d` 实测：首批提交前得到 `MATCHES_BEFORE_BATCH`；子进程提交后退出而账本仍为进行中时得到 `MATCHES_AFTER_BATCH`；两次判别前后账本文件 SHA 不变，随后身份绑定停止两个实例、保留资源。对已停止的实验和不存在的 run ID，工具返回非零并拒绝判断，既有状态摘要不变；业务服务活动且 `ready=200`。该测试的父进程保持运行，不是控制器 SIGKILL、跨重启或断电测试。
+run `8064c776dddb149d` 实测：首批提交前得到 `MATCHES_BEFORE_BATCH`；子进程提交后退出而账本仍为进行中时得到 `MATCHES_AFTER_BATCH`；两次判别前后账本文件 SHA 不变，随后身份绑定停止两个实例、保留资源。对已停止的实验和不存在的 run ID，工具返回非零并拒绝判断，既有状态摘要不变；业务服务活动且 `ready=200`。该测试的父进程保持运行，不是控制器 SIGKILL、跨重启或断电测试。
 
 入口 SHA256 为 `22eafb2575f62eee99dd0d1381143b5b39c32fda0a4b7873cfa00de6b53112e8`；测试变体 `baseline/isolated_mysql_reconcile_test.py` SHA256 为 `e4ed192d40b9b196de2025b720e6adbceb87a08652896fed8d8c121a69cfaf9c`。两者均须先按前文暂存至 root 控制目录并独立核对摘要；运行判别工具时传入明确的 16 位 run ID。当前不支持已停止或跨启动周期的实例，不会清理、重启或接管服务，也未接入 `baseline/deploy`。
 
 ### 专属工作进程的受控强杀实验
 
-代理 run `575514bf1153243d` 在授权恢复副本启动独立 transient systemd 测试单元，显式设置 `KillMode=control-group` 和 60 秒运行上限。记录 unit、InvocationID、进程身份及控制组后，只向本轮单元的主进程发送 SIGKILL；确认主进程和事先核验的子进程退出，控制组为空或已消失。受保护证据位于 `/var/backups/opsdrill/Baseline/supervisor-575514bf1153243d`，业务服务保持活动且 `ready=200`。这是独立的模拟工作进程实验，没有连接数据库，不能推断数据库导入或自动续传已具备相同保证；若 unit 被回收、身份或子进程状态不明，仍须保守拒绝。
+run `575514bf1153243d` 在授权恢复副本启动独立 transient systemd 测试单元，显式设置 `KillMode=control-group` 和 60 秒运行上限。记录 unit、InvocationID、进程身份及控制组后，只向本轮单元的主进程发送 SIGKILL；确认主进程和事先核验的子进程退出，控制组为空或已消失。受保护证据位于 `/var/backups/opsdrill/Baseline/supervisor-575514bf1153243d`，业务服务保持活动且 `ready=200`。这是独立的模拟工作进程实验，没有连接数据库，不能推断数据库导入或自动续传已具备相同保证；若 unit 被回收、身份或子进程状态不明，仍须保守拒绝。
 
 重现入口 `baseline/systemd_worker_supervision_test.py` 的 SHA256 为 `a450ae04dc37304e63b94692f69a4521ff0d6782f39270e9cfc8ba27fa21be82`。该脚本会启动一个最多 60 秒的 root 测试单元并对其主进程发送 SIGKILL，须在授权空闲 VM 中，按前述 root 受保护暂存与摘要核验方式执行；它不会重置其他单元。
 
 ### 受控导入工作进程强杀（真实隔离 MySQL）
 
-代理 run `593df06cca53097a` 在独立 socket-only MySQL target 上，以 `KillMode=control-group` 和 90 秒上限运行本轮专属导入测试单元。测试先记录工作单元的 InvocationID、主进程和 MySQL 客户端子进程身份，确认两者属于该单元控制组；再通过 InnoDB 事务信息观察到本轮 1000 条修改尚未提交、另一连接看到的订单数为 0。随后仅向该单元主进程发送 SIGKILL，核验主进程和已绑定的客户端子进程退出、控制组为空或已消失，确认对应活动事务消失且订单表仍为 0。独立只读判别返回 `MATCHES_BEFORE_BATCH` 且未改变账本；两个 MySQL 实例随后按身份停止，资源和状态保留。业务服务活动且 `ready=200`。
+run `593df06cca53097a` 在独立 socket-only MySQL target 上，以 `KillMode=control-group` 和 90 秒上限运行本轮专属导入测试单元。测试先记录工作单元的 InvocationID、主进程和 MySQL 客户端子进程身份，确认两者属于该单元控制组；再通过 InnoDB 事务信息观察到本轮 1000 条修改尚未提交、另一连接看到的订单数为 0。随后仅向该单元主进程发送 SIGKILL，核验主进程和已绑定的客户端子进程退出、控制组为空或已消失，确认对应活动事务消失且订单表仍为 0。独立只读判别返回 `MATCHES_BEFORE_BATCH` 且未改变账本；两个 MySQL 实例随后按身份停止，资源和状态保留。业务服务活动且 `ready=200`。
 
 这是本轮已确认身份的**导入工作进程**在提交前被强杀，测试编排进程仍存活；不证明整机断电、跨重启、提交后强杀或一般情况下所有孤儿进程均能识别，也没有实现自动续传。重现入口 `baseline/isolated_mysql_supervised_kill_test.py` 的 SHA256 为 `9c216d4ae8e048d3a8da078057486605c025626059f9ab788c814afd1280349e`；它创建隔离 MySQL 和受时限控制的 root 测试单元，并强杀该单元主进程。只可在授权空闲 VM 中，先按前文要求放入 root 控制目录并独立核对摘要后运行。
 
@@ -132,7 +132,7 @@ MySQL 客户端使用 `--defaults-file`，并在命令行强制 `localhost`、SO
 
 新密码由脚本生成，写入 root:root 0600 文件；SQL 通过本地 socket 的标准输入提交，登录核对通过内存文件描述符传递密码，不把密码放入命令行或输出。创建前要求 general log 和 log_raw 关闭、未发现活动审计插件/组件和复制配置；账号创建所在连接单独关闭 binlog，避免账号 DDL 进入该连接的 binlog。该检查不等同于证明不存在所有外部审计或抓取机制；应只在授权隔离实验机使用。MySQL DDL 隐式提交，任何失败都保留文件和账号现状供核查，不自动删除或盲目重试。
 
-代理 run `89592009facd7eb0` 在独立 socket-only MySQL 上使用 5 条旧订单和 1000 条合成影子订单，实测两账号新建、授权核对、密码认证和重复创建拒绝；测试将读账号期望数量限定为 1000，正式入口仍要求 500000。测试实例按身份停止、现场保留。现有业务库上 dry-run 和 `--apply` 均识别 `same`，凭据文件元数据及内容未改变，服务活动且 `ready=200`。另一次测试因凭据暂存路径未满足 root 祖先目录护栏而拒绝，隔离实例已按身份停止；不得把失败记录当作成功。4 项相关单元测试通过。
+run `89592009facd7eb0` 在独立 socket-only MySQL 上使用 5 条旧订单和 1000 条合成影子订单，实测两账号新建、授权核对、密码认证和重复创建拒绝；测试将读账号期望数量限定为 1000，正式入口仍要求 500000。测试实例按身份停止、现场保留。现有业务库上 dry-run 和 `--apply` 均识别 `same`，凭据文件元数据及内容未改变，服务活动且 `ready=200`。另一次测试因凭据暂存路径未满足 root 祖先目录护栏而拒绝，隔离实例已按身份停止；不得把失败记录当作成功。4 项相关单元测试通过。
 
 将 `accounts.py`、`common.py` 和 `verify` 复制到 root 控制、祖先目录不可由普通用户写入的位置，独立核对 SHA256：`accounts.py` `36cda599f164bce46eb4e75becf6efd2878cd1a8411c10c5bc8fb84b5a42240e`，`common.py` `de57fdab833d35ed3ebc042ce1327ffe642004e61e7bbf2ae5fffeeefa4755a4`，`verify` `440c4d5f98f1146c62c28725760430c66f371b0a5207b0bef8c6bb821d444df8`；从该受保护目录使用 `sudo python3 -I -B <受保护目录>/accounts.py` 预览，确认后才追加 `--apply`。依赖必须在执行前核验，程序自检不能替代来源审阅。重现实验 `baseline/isolated_mysql_accounts_test.py` 的 SHA256 为 `e4911ea329f8d9e3540d2c5119ce01d0083c37e15efb06c32602b7896dbf145a`，仅在授权空闲 VM、受保护暂存并核验后运行。
 
@@ -140,6 +140,6 @@ MySQL 客户端使用 `--defaults-file`，并在命令行强制 `localhost`、SO
 
 ## MySQL 网络监听边界（2026-11-13）
 
-代理检查恢复副本时发现 MySQL 的 3306 与 33060 原先监听所有地址；当时活动 public 防火墙区域未显式开放这两个端口，但这不等于服务本身只监听本机。已检查无活动 MySQL TCP 连接，备份现有 `/etc/my.cnf` 后追加 `bind-address=127.0.0.1` 和 `mysqlx-bind-address=127.0.0.1`，验证配置并重启实验 MySQL。之后两个端口均只监听 `127.0.0.1`，固定数据检查通过、订单服务 `ready=200`、SELinux Enforcing。原始配置和变更记录保存在 root 保护的 `/var/backups/opsdrill/Baseline/mysql-loopback-a0d8f56c7ae4564f`；其中的配置备份可能含敏感信息，不得公开。
+检查恢复副本时发现 MySQL 的 3306 与 33060 原先监听所有地址；当时活动 public 防火墙区域未显式开放这两个端口，但这不等于服务本身只监听本机。已检查无活动 MySQL TCP 连接，备份现有 `/etc/my.cnf` 后追加 `bind-address=127.0.0.1` 和 `mysqlx-bind-address=127.0.0.1`，验证配置并重启实验 MySQL。之后两个端口均只监听 `127.0.0.1`，固定数据检查通过、订单服务 `ready=200`、SELinux Enforcing。原始配置和变更记录保存在 root 保护的 `/var/backups/opsdrill/Baseline/mysql-loopback-a0d8f56c7ae4564f`；其中的配置备份可能含敏感信息，不得公开。
 
 新版 `baseline/verify` 额外检查 3306 必须由 mysqld 服务主进程监听回环地址，33060 若监听也必须为同一进程的回环地址；发现非回环监听为 FAIL，无法确认监听者为 UNKNOWN。此检查不代替防火墙规则审计，也不覆盖其他端口。32 项基线测试及恢复副本实际验证通过；`deploy` 和 `accounts.py` 的校验器固定摘要已同步更新，早期隔离账号测试仍使用其原本的受保护旧版候选。参考：[MySQL 8.4 服务端变量](https://dev.mysql.com/doc/refman/8.4/en/server-system-variables.html)、[MySQL 配置验证](https://dev.mysql.com/doc/refman/8.4/en/server-configuration-validation.html)。

@@ -58,11 +58,11 @@ sudo bin/opsdrill reset N03 --actor user --expect-run-id RUN_ID
 
 [Nginx proxy 模块](https://nginx.org/en/docs/http/ngx_http_proxy_module.html)、[Nginx 日志模块](https://nginx.org/en/docs/http/ngx_http_log_module.html)。
 
-## 新机 502／504 及配置修复（2026-11-14，代理）
+## 新机 502／504 及配置修复（2026-11-14）
 
 新机首次 504 启动没有建立故障：其 systemd 服务缺少 `40-opsdrill-n03.conf`，受控慢接口即使门控文件存在也返回 404。该失败的 CLI 和控制器状态已归档在 `/var/backups/opsdrill/N03/failed-start-archive-f96990034f868371/`，失败事件保留；之后按同一控制器 run ID 安全复位，再在控制器确认干净后协调 CLI 状态。此轮不能记为成功演练。
 
-补装固定的门控环境配置并重启实验 API 后，未开启门控时慢接口仍返回 404，业务 readiness 为 200。代理随后分别通过统一 CLI 验证实际 502 和 504、故障时 check、恢复后 check 及同轮复位；两次响应的请求 ID 分别与独立 timing 日志对应，错误日志在各自有限时间窗口内分别包含连接拒绝和上游超时的证据。错误日志没有与响应相同的请求 ID，因此只是按窗口关联。原始日志未加入安装包。
+补装固定的门控环境配置并重启实验 API 后，未开启门控时慢接口仍返回 404，业务 readiness 为 200。随后分别通过统一 CLI 验证实际 502 和 504、故障时 check、恢复后 check 及同轮复位；两次响应的请求 ID 分别与独立 timing 日志对应，错误日志在各自有限时间窗口内分别包含连接拒绝和上游超时的证据。错误日志没有与响应相同的请求 ID，因此只是按窗口关联。原始日志未加入安装包。
 
 精简结果位于 `/var/backups/opsdrill/N03/gateway-evidence-018e9e687a49c41f/result.json`，SHA256 `884ba89f338fc635c522028126b71c338493d4eae3477386d17098b214f8e9e9`；事件和结果使用 `actor=agent`。该结果只覆盖本机两个有限请求，不代表所有 502／504 均由这两种原因造成，也不代表虚拟机挂起或重启后的行为已验收。
 
