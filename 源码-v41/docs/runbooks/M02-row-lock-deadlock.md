@@ -283,7 +283,7 @@ C1、C2 的恢复检查使用 200ms 采样并要求连续两次干净观察；�
 - 非真实生产环境。
 - 未形成真实客户 SLA。
 - 1213 整笔重试的自动化集成实测仍待补充。
-- 用户本人 MTTD、MTTR 练习记录待填写。
+- 人工演练的 MTTD、MTTR 记录待填写。
 
 ## 12. Version / reproduction date / references
 

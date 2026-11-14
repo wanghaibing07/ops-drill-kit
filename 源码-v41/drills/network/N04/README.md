@@ -4,7 +4,7 @@
 
 在已授权实验机内，以 root 调用 `bin/opsdrill start N04 --actor agent` 并保存输出的 run_id。随后使用同一 run_id 执行 `check N04 --expect-run-id ID --actor agent`、`resolve N04 --expect-run-id ID --actor agent`、`check`、`reset`。故障检查返回 1，恢复验证成功返回 0，证据不足或环境错误返回 2；其他 run_id 被拒绝。重复 reset 需要该轮受保护完成凭证。
 
-2026-11-13 在隔离恢复副本实测 `make contract-n04`，run `116784566a17d25ef54b18cf`，actor=agent：检查到 32 个 TIME_WAIT；修复后单连接 8 次请求成功；同轮两次 reset、未知 run_id 拒绝及报告解析通过。该记录不是用户本人练习。
+2026-11-13 在隔离恢复副本实测 `make contract-n04`，run `116784566a17d25ef54b18cf`，actor=agent：检查到 32 个 TIME_WAIT；修复后单连接 8 次请求成功；同轮两次 reset、未知 run_id 拒绝及报告解析通过。该轮为自动契约执行。
 
 CLI 演练本身验证原生 TCP 连接复用；独立的 Nginx upstream keepalive 对照见下文。当前新版在启动控制器前记录 run_id；尚未创建或无法认证 identity 的中断仍可能需人工核查，禁止按名称或 PID 猜测清理。旧轮不明 socket 与 identity 必须保留；短生命周期不等于异常恢复全覆盖。
 
