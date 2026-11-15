@@ -39,7 +39,7 @@
 | N02 网络配置前后对照 | `/var/backups/opsdrill/network-verification-fa3959f8c83831e5/N02.json` | 网卡、地址、路由、nft、sysctl 摘要一致 |
 | N03 看门狗实测（502 / 504） | 同目录 `N03-502.json`、`N03-504.json` | 含 systemd invocation ID |
 | N04 临时端口契约 | 本轮结果目录 | run `116784566a17d25ef54b18cf` |
-| C01 有限窗口契约 | 有界判题输出 | run `a9cb8428bd4c8551f074b984` |
+| C01 有限窗口契约 | 有限窗口验收记录 | run `a9cb8428bd4c8551f074b984` |
 
 ## 关键 run_id 速查
 
