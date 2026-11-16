@@ -1,6 +1,12 @@
-# ops-drill-kit · Linux 运维故障注入与恢复验证平台
+# Ops Fault Recovery | Linux 服务故障诊断与恢复验证
 
-基于 VMware Workstation、Rocky Linux 9.8、Nginx、FastAPI 和 MySQL 构建的可靠性验证项目，实现受控故障注入、状态检查、恢复处置、结果验收及证据留存。项目覆盖 **13 类故障场景**，其中 **L02、N03、M01、M04 四类已形成完整验证闭环**。
+**个人项目 · Linux 运维 / 技术支持 / 实施交付方向**
+
+基于 VMware Workstation、Rocky Linux 9.8、Nginx、FastAPI 和 MySQL 搭建订单服务，围绕 **SELinux 端口拒绝、Nginx 502/504、MySQL 查询退化与误删恢复**，实现故障定位、恢复处置、业务验收及证据留存。
+
+**可核验成果：** 已完成 L02、N03、M01、M04 四类场景的诊断与恢复闭环；在 **50 万条合成订单**的固定查询中，联合索引使平均耗时由 **30.55 ms 降至 0.84 ms**；使用 MySQL 全备与 binlog 恢复误删前状态，并由隔离订单 API 验证业务可读。项目规划 13 类场景，其余完成情况见下文。
+
+**快速查看：** [代表性案例与证据](案例与证据.md) · [工程设计问答](docs/design-faq.md) · [证据索引](docs/appendix/evidence-index.md) · [场景状态](#场景覆盖与完成状态)
 
 ## 工程目标
 
@@ -23,7 +29,7 @@ VMware Workstation
 
 业务链路为 **Nginx → FastAPI → MySQL**。基础业务库使用 5 条合成订单；影子库使用 50 万条合成订单，用于查询性能和数据恢复验证。
 
-## 核心工程实现
+## 核心实现
 
 ### 统一控制接口与生命周期
 
@@ -98,4 +104,4 @@ VMware Workstation
 
 ---
 
-文档更新：2026-11-15（UTC+8）
+文档更新：2026-11-16（UTC+8）
